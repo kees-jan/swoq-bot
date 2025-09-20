@@ -9,6 +9,26 @@ message(STATUS "Using Protobuf ${Protobuf_VERSION}")
 find_package(gRPC CONFIG REQUIRED)
 message(STATUS "Using gRPC ${gRPC_VERSION}")
 
+add_compile_options(
+        -Wall -Wextra -Wshadow -Wnon-virtual-dtor -pedantic
+        -Wold-style-cast
+        -Wcast-align
+        -Wunused
+        -Woverloaded-virtual
+        -Wpedantic
+        -Wsign-conversion
+        -Wmisleading-indentation
+        -Wduplicated-cond
+        -Wduplicated-branches
+        -Wlogical-op
+        -Wnull-dereference
+        -Wuseless-cast
+        -Wdouble-promotion
+        -Wformat=2
+        -Wimplicit-fallthrough
+        -Werror
+)
+
 add_executable(bot
   src/main.cpp
   src/swoq.proto

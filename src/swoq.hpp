@@ -55,7 +55,6 @@ namespace Swoq {
     private:
         std::expected<void, std::string> write_delimited(const google::protobuf::Message& msg);
 
-    private:
         std::ofstream m_stream;
         google::protobuf::io::OstreamOutputStream m_zero_copy_output;
         google::protobuf::io::CodedOutputStream m_coded_output;
@@ -98,6 +97,9 @@ struct std::formatter<Swoq::Interface::StartResult> {
             case START_RESULT_INVALID_LEVEL: s = "INVALID_LEVEL"; break;
             case START_RESULT_QUEST_QUEUED: s = "QUEST_QUEUED"; break;
             case START_RESULT_NOT_ALLOWED: s = "NOT_ALLOWED"; break;
+            case StartResult_INT_MIN_SENTINEL_DO_NOT_USE_:
+            case StartResult_INT_MAX_SENTINEL_DO_NOT_USE_:
+                std::terminate();
         }
         return std::format_to(ctx.out(), "{}", s);
     }
@@ -116,6 +118,9 @@ struct std::formatter<Swoq::Interface::ActResult> {
             case ACT_RESULT_MOVE_NOT_ALLOWED: s = "MOVE_NOT_ALLOWED"; break;
             case ACT_RESULT_UNKNOWN_ACTION: s = "UNKNOWN_ACTION"; break;
             case ACT_RESULT_GAME_FINISHED: s = "GAME_FINISHED"; break;
+            case ActResult_INT_MAX_SENTINEL_DO_NOT_USE_:
+            case ActResult_INT_MIN_SENTINEL_DO_NOT_USE_:
+                std::terminate();
         }
         return std::format_to(ctx.out(), "{}", s);
     }
