@@ -19,6 +19,7 @@ add_executable(test_bot_dummy
 set_target_properties(test_bot_dummy PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON)
 
 target_link_libraries(test_bot_dummy PRIVATE GTest::gtest_main)
+set_property(TARGET test_bot_dummy PROPERTY CXX_STANDARD 23)
 
 target_include_directories(test_bot_dummy PRIVATE ${CMAKE_SOURCE_DIR}/src)
 

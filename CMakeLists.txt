@@ -24,6 +24,7 @@ add_library(bot_lib STATIC
         src/swoq.cpp
         src/dotenv.cpp
         src/Offset.h
+        src/Vector2d.h
 )
 target_link_libraries(bot_lib PUBLIC
         protobuf::libprotobuf
