@@ -1,4 +1,5 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.14)
+
 project(bot)
 
 enable_language(CXX)
@@ -9,7 +10,31 @@ message(STATUS "Using Protobuf ${Protobuf_VERSION}")
 find_package(gRPC CONFIG REQUIRED)
 message(STATUS "Using gRPC ${gRPC_VERSION}")
 
-add_compile_options(
+# Enable new Boost policy to avoid deprecation warning
+if (POLICY CMP0167)
+    cmake_policy(SET CMP0167 NEW)
+endif ()
+
+# Add Boost
+find_package(Boost REQUIRED)
+message(STATUS "Found Boost: ${Boost_INCLUDE_DIRS}")
+
+add_library(bot_lib STATIC
+        src/swoq.proto
+        src/swoq.cpp
+        src/dotenv.cpp
+)
+target_link_libraries(bot_lib PUBLIC
+        protobuf::libprotobuf
+        gRPC::grpc
+        gRPC::grpc++)
+
+add_executable(bot
+        src/main.cpp
+)
+
+# Apply warning flags only to bot
+target_compile_options(bot_lib PUBLIC
         -Wall -Wextra -Wshadow -Wnon-virtual-dtor -pedantic
         -Wold-style-cast
         -Wcast-align
@@ -29,25 +54,33 @@ add_compile_options(
         -Werror
 )
 
-add_executable(bot
-  src/main.cpp
-  src/swoq.proto
-  src/swoq.cpp
-  src/dotenv.cpp
-)
-
 target_link_libraries(bot PUBLIC
-  protobuf::libprotobuf
-  gRPC::grpc
-  gRPC::grpc++
+        bot_lib
 )
 
-target_include_directories(bot PUBLIC
-  ${CMAKE_CURRENT_BINARY_DIR}
+# Link Boost (header-only or compiled libs)
+if (TARGET Boost::boost)
+    target_link_libraries(bot PUBLIC Boost::boost)
+else ()
+    target_include_directories(bot PUBLIC ${Boost_INCLUDE_DIRS})
+    if (Boost_LIBRARIES)
+        target_link_libraries(bot PUBLIC ${Boost_LIBRARIES})
+    endif ()
+endif ()
+
+target_include_directories(bot_lib PUBLIC
+        ${CMAKE_CURRENT_BINARY_DIR}
 )
 
 set_property(TARGET bot PROPERTY CXX_STANDARD 23)
+set_property(TARGET bot_lib PROPERTY CXX_STANDARD 23)
 
 get_target_property(grpc_cpp_plugin_location gRPC::grpc_cpp_plugin LOCATION)
-protobuf_generate(TARGET bot LANGUAGE cpp)
-protobuf_generate(TARGET bot LANGUAGE grpc GENERATE_EXTENSIONS .grpc.pb.h .grpc.pb.cc PLUGIN "protoc-gen-grpc=${grpc_cpp_plugin_location}")
+protobuf_generate(TARGET bot_lib LANGUAGE cpp)
+protobuf_generate(TARGET bot_lib LANGUAGE grpc GENERATE_EXTENSIONS .grpc.pb.h .grpc.pb.cc PLUGIN "protoc-gen-grpc=${grpc_cpp_plugin_location}")
+
+# Enable testing
+include(CTest)
+if (BUILD_TESTING)
+    add_subdirectory(tests)
+endif ()

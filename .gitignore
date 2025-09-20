@@ -1,5 +1,6 @@
 *~
 .env*
 /cmake-build-*
+/build*
 /Replays
 /.idea
