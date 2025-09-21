@@ -10,7 +10,7 @@
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 #include <grpcpp/grpcpp.h>
 
-#include "src/swoq.grpc.pb.h"
+#include "src/Swoq.grpc.pb.h"
 
 namespace Swoq
 {
@@ -18,7 +18,6 @@ namespace Swoq
   namespace fs = std::filesystem;
 
   class Game;
-  class ReplayFile;
 
   class GameConnection
   {
@@ -53,8 +52,6 @@ namespace Swoq
     ~ReplayFile()                            = default;
     ReplayFile(const ReplayFile&)            = delete;
     ReplayFile& operator=(const ReplayFile&) = delete;
-    ReplayFile(ReplayFile&&)                 = default;
-    ReplayFile& operator=(ReplayFile&&)      = default;
 
     std::expected<void, std::string> append(const Swoq::Interface::ActRequest&  request,
                                             const Swoq::Interface::ActResponse& response);

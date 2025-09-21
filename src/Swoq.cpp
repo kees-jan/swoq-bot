@@ -1,4 +1,4 @@
-#include "swoq.hpp"
+#include "Swoq.hpp"
 
 namespace Swoq
 {

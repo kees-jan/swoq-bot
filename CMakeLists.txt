@@ -20,9 +20,9 @@ find_package(Boost REQUIRED)
 message(STATUS "Found Boost: ${Boost_INCLUDE_DIRS}")
 
 add_library(bot_lib STATIC
-        src/swoq.proto
-        src/swoq.cpp
-        src/dotenv.cpp
+        src/Swoq.proto
+        src/Swoq.cpp
+        src/Dotenv.cpp
         src/Offset.h
         src/Vector2d.h
 )

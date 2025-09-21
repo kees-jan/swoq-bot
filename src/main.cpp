@@ -1,7 +1,7 @@
 #include <print>
 
-#include "dotenv.hpp"
-#include "swoq.hpp"
+#include "Dotenv.hpp"
+#include "Swoq.hpp"
 
 using namespace Swoq::Interface;
 using namespace Swoq;
