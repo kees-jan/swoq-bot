@@ -1,7 +1,9 @@
 #include <print>
 
 #include "Dotenv.hpp"
+#include "Game.h"
 #include "Swoq.hpp"
+#include "Vector2d.h"
 
 using namespace Swoq::Interface;
 using namespace Swoq;
@@ -29,30 +31,8 @@ int main(int /*argc*/, char** /*argv*/)
   }
   auto& game = (*start_result);
 
-  // Show game stats
-  std::println("Game {} started", game->game_id());
-  std::println("- seed: {}", game->seed());
-  std::println("- map size: {}x{}", game->map_height(), game->map_width());
+  Bot::Game  botGame(connection, std::move(game));
+  const auto result = botGame.Run();
 
-  // Game loop
-  auto move_east = true;
-  while(game->state().status() == GameStatus::GAME_STATUS_ACTIVE)
-  {
-    // Determine action
-    auto action = move_east ? DirectedAction::DIRECTED_ACTION_MOVE_EAST : DirectedAction::DIRECTED_ACTION_MOVE_SOUTH;
-    std::println("tick: {}, action: {}", game->state().tick(), action);
-
-    // Act
-    auto result = game->act(action);
-    if(!result)
-    {
-      std::println(std::cerr, "Action failed: {}", result.error());
-      return -1;
-    }
-
-    // Prepare for next action
-    move_east = !move_east;
-  }
-
-  return 0;
+  return result ? 0 : -1;
 }

@@ -33,7 +33,8 @@ public:
   constexpr Offset ToOffset(std::size_t index) const noexcept
   {
     assert(index < static_cast<std::size_t>(m_width * m_height));
-    return Offset{static_cast<int>(index % m_width), static_cast<int>(index / m_width)};
+    const auto i = static_cast<int>(index);
+    return Offset{i % m_width, i / m_width};
   }
 
 private:
@@ -58,7 +59,7 @@ public:
     assert(static_cast<int>(data.size()) == width * height);
   }
 
-  constexpr const T& operator[](std::size_t index) const noexcept
+  constexpr const T& operator[](int index) const noexcept
   {
     assert(index < data.size());
     return data[index];
@@ -70,7 +71,7 @@ public:
     return data[ToIndex(offset)];
   }
 
-  constexpr T& operator[](std::size_t index) noexcept
+  constexpr T& operator[](int index) noexcept
   {
     assert(index < data.size());
     return data[index];

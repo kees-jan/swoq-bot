@@ -10,7 +10,7 @@
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 #include <grpcpp/grpcpp.h>
 
-#include "src/Swoq.grpc.pb.h"
+#include "Swoq.grpc.pb.h"
 
 namespace Swoq
 {

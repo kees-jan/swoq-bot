@@ -5,9 +5,9 @@ struct Offset
   int x;
   int y;
 
-  constexpr Offset(int x, int y)
-    : x(x)
-    , y(y)
+  constexpr Offset(int x_, int y_)
+    : x(x_)
+    , y(y_)
   {
   }
 
