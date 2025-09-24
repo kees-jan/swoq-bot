@@ -153,6 +153,15 @@ struct std::formatter<Swoq::Interface::ActResult>
     case ACT_RESULT_GAME_FINISHED:
       s = "GAME_FINISHED";
       break;
+    case ACT_RESULT_USE_NOT_ALLOWED:
+      s = "USE_NOT_ALLOWED";
+      break;
+    case ACT_RESULT_INVENTORY_EMPTY:
+      s = "INVENTORY_EMPTY";
+      break;
+    case ACT_RESULT_INVENTORY_FULL:
+      s = "INVENTORY_FULL";
+      break;
     case ActResult_INT_MAX_SENTINEL_DO_NOT_USE_:
     case ActResult_INT_MIN_SENTINEL_DO_NOT_USE_:
       std::terminate();

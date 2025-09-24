@@ -26,6 +26,18 @@ namespace Bot
       return 'E';
     case Tile::TILE_PLAYER:
       return 'O';
+    case Tile::TILE_DOOR_RED:
+      return 'R';
+    case Tile::TILE_DOOR_GREEN:
+      return 'G';
+    case Tile::TILE_DOOR_BLUE:
+      return 'B';
+    case Tile::TILE_KEY_RED:
+      return 'r';
+    case Tile::TILE_KEY_GREEN:
+      return 'g';
+    case Tile::TILE_KEY_BLUE:
+      return 'b';
     case Tile::Tile_INT_MAX_SENTINEL_DO_NOT_USE_:
     case Tile::Tile_INT_MIN_SENTINEL_DO_NOT_USE_:
       break;
