@@ -9,23 +9,38 @@ namespace Bot
   using Swoq::Interface::DirectedAction;
   using Swoq::Interface::GameStatus;
 
-  Player::Player(int id, GameCallbacks& callbacks, std::unique_ptr<Swoq::Game> game)
+  Player::Player(int id, GameCallbacks& callbacks, std::unique_ptr<Swoq::Game> game, ThreadSafe<std::shared_ptr<const Map>>& map)
     : m_id(id)
     , m_callbacks(callbacks)
     , m_game(std::move(game))
+    , m_map(map)
   {
     // Show game stats
     std::println("Game {} started", m_game->game_id());
     std::println("- seed: {}", m_game->seed());
-    std::println("- level: {}", m_level);
     std::println("- map size: {}x{}", m_game->map_height(), m_game->map_width());
     std::println("- visibility: {}", m_game->visibility_range());
   }
 
-  std::expected<void, std::string> Player::Run()
+  bool Player::UpdateMap()
   {
     const int visibility = m_game->visibility_range();
+    auto      state      = m_game->state().playerstate();
+    auto      pos        = state.position();
+    auto      view       = ViewFromState(visibility, state);
+    auto      map        = m_map.Lock();
+    auto      newMap     = map->Update(pos, visibility, view);
 
+    bool updated = newMap->Exit() && !map->Exit();
+
+    map                      = newMap;
+    m_state.Lock()->position = pos;
+
+    return updated;
+  }
+
+  std::expected<void, std::string> Player::Run()
+  {
     // Game loop
     auto move_east = true;
     while(m_game->state().status() == GameStatus::GAME_STATUS_ACTIVE)
@@ -37,11 +52,12 @@ namespace Bot
         m_level = level;
       }
 
-      auto state = m_game->state().playerstate();
-      auto pos   = state.position();
-      auto view  = ViewFromState(visibility, state);
-      Print(view);
-      std::println();
+      bool updated = UpdateMap();
+      m_callbacks.PrintMap();
+      if(updated)
+      {
+        m_callbacks.MapUpdated(m_id);
+      }
 
       // Determine action
       auto action = move_east ? DirectedAction::DIRECTED_ACTION_MOVE_EAST : DirectedAction::DIRECTED_ACTION_MOVE_SOUTH;

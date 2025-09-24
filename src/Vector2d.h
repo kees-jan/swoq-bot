@@ -15,6 +15,7 @@ public:
     : m_width(width)
     , m_height(height)
   {
+    assert(m_width >= 0 && m_height >= 0);
   }
 
   constexpr int Width() const noexcept { return m_width; }
@@ -49,7 +50,7 @@ class Vector2d : public Vector2dBase
 public:
   constexpr Vector2d(int width, int height, T default_value = T()) noexcept
     : Vector2dBase(width, height)
-    , data(width * height, default_value)
+    , data(static_cast<std::size_t>(width * height), default_value)
   {
   }
 
@@ -60,7 +61,7 @@ public:
     assert(static_cast<int>(data.size()) == width * height);
   }
 
-  constexpr const T& operator[](int index) const noexcept
+  constexpr const T& operator[](std::size_t index) const noexcept
   {
     assert(index < data.size());
     return data[index];
@@ -72,7 +73,7 @@ public:
     return data[ToIndex(offset)];
   }
 
-  constexpr T& operator[](int index) noexcept
+  constexpr T& operator[](std::size_t index) noexcept
   {
     assert(index < data.size());
     return data[index];
@@ -90,6 +91,10 @@ public:
     using R = std::invoke_result_t<F, const T&>;
     return Vector2d<R>(Width(), Height(), data | std::views::transform(f) | std::ranges::to<std::vector<R>>());
   }
+
+  constexpr Offset Size() const { return Offset(Width(), Height()); }
+
+  constexpr const std::vector<T>& Data() const noexcept { return data; }
 
 private:
   std::vector<T> data;

@@ -1,5 +1,12 @@
 #pragma once
 
+#include <algorithm>
+#include <coroutine>
+#include <generator>
+#include <initializer_list>
+
+#include "Swoq.pb.h"
+
 struct Offset
 {
   int x;
@@ -8,6 +15,12 @@ struct Offset
   constexpr Offset(int x_, int y_)
     : x(x_)
     , y(y_)
+  {
+  }
+
+  constexpr Offset(Swoq::Interface::Position p)
+    : x(p.x())
+    , y(p.y())
   {
   }
 
@@ -48,3 +61,41 @@ constexpr Offset operator*(const Offset& offset, int factor) noexcept
 }
 
 constexpr Offset operator*(int factor, const Offset& offset) noexcept { return offset * factor; }
+constexpr bool   operator==(const Offset& left, const Offset& right) noexcept { return left.x == right.x && left.y == right.y; }
+constexpr bool   operator!=(const Offset& left, const Offset& right) noexcept { return !(left == right); }
+constexpr Offset max(Offset left, Offset right) { return Offset{std::max(left.x, right.x), std::max(left.y, right.y)}; }
+
+
+constexpr Offset North(-1, 0);
+constexpr Offset South(1, 0);
+constexpr Offset West(0, -1);
+constexpr Offset East(0, 1);
+constexpr Offset NorthEast(North + East);
+constexpr Offset SouthEast(South + East);
+constexpr Offset SouthWest(South + West);
+constexpr Offset NorthWest(North + West);
+
+constexpr Offset Up(North);
+constexpr Offset Down(South);
+constexpr Offset Left(West);
+constexpr Offset Right(East);
+
+constexpr Offset One(SouthEast);
+
+constexpr std::initializer_list<Offset> Directions{Up, Down, Left, Right};
+constexpr std::initializer_list<Offset> AllDirections{North, NorthEast, East, SouthEast, South, SouthWest, West, NorthWest};
+
+inline std::generator<Offset> OffsetsInRectangle(Offset maxExclusive)
+{
+  if(maxExclusive.x <= 0 || maxExclusive.y <= 0)
+  {
+    co_return;
+  }
+  for(int y = 0; y < maxExclusive.y; ++y)
+  {
+    for(int x = 0; x < maxExclusive.x; ++x)
+    {
+      co_yield Offset{x, y};
+    }
+  }
+}

@@ -1,12 +1,10 @@
+#include "Vector2d.h"
+
 #include <string>
 #include <type_traits>
 #include <vector>
 
 #include <gtest/gtest.h>
-
-#include "Vector2d.h"
-
-TEST(DummySuite, AlwaysPasses) { EXPECT_EQ(1, 1); }
 
 TEST(Vector2dMap, DoublesValues)
 {

@@ -1,17 +1,18 @@
 add_library(bot_lib STATIC
-        Swoq.proto
-        Swoq.cpp
         Dotenv.cpp
-        Offset.h
-        Vector2d.h
-        Map.h
         Game.cpp
         Game.h
+        GameCallbacks.h
+        Map.h
+        Offset.h
         Player.cpp
         Player.h
-        GameCallbacks.h
+        Swoq.cpp
+        Swoq.proto
         ThreadSafe.h
         TypeTraits.h
+        Vector2d.h
+        Map.cpp
 )
 target_link_libraries(bot_lib PUBLIC
         protobuf::libprotobuf
@@ -59,10 +60,11 @@ endif ()
 
 target_include_directories(bot_lib PUBLIC
         ${CMAKE_CURRENT_BINARY_DIR}
+        ${CMAKE_SOURCE_DIR}/src
 )
 
-set_property(TARGET bot PROPERTY CXX_STANDARD 23)
-set_property(TARGET bot_lib PROPERTY CXX_STANDARD 23)
+set_property(TARGET bot PROPERTY CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON)
+set_property(TARGET bot_lib PROPERTY CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON)
 
 get_target_property(grpc_cpp_plugin_location gRPC::grpc_cpp_plugin LOCATION)
 protobuf_generate(TARGET bot_lib LANGUAGE cpp)

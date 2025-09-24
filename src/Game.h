@@ -3,12 +3,13 @@
 #include <expected>
 
 #include "GameCallbacks.h"
+#include "Map.h"
 #include "Player.h"
 #include "Swoq.hpp"
+#include "ThreadSafe.h"
 
 namespace Bot
 {
-
   class Game : private GameCallbacks
   {
   public:
@@ -18,12 +19,16 @@ namespace Bot
 
   private:
     void LevelReached(int reportingPlayer, int level) override;
+    void MapUpdated(int id) override;
+    void PrintMap() override;
+
 
   private:
-    Swoq::GameConnection m_gameConnection;
-    int                  m_seed;
-    int                  m_level;
-    Player               m_player;
+    Swoq::GameConnection                   m_gameConnection;
+    int                                    m_seed;
+    int                                    m_level;
+    ThreadSafe<std::shared_ptr<const Map>> m_map;
+    Player                                 m_player;
   };
 
 } // namespace Bot

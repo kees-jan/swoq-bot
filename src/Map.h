@@ -5,20 +5,13 @@
 
 namespace Bot
 {
-  using Swoq::Interface::PlayerState;
   using Swoq::Interface::Tile;
 
-  inline Vector2d<Tile> ViewFromState(int visibility, const PlayerState& state)
-  {
-    int visibility_dimension = 2 * visibility + 1;
-    assert(state.surroundings_size() == visibility_dimension * visibility_dimension);
-    return Vector2d(visibility_dimension,
-                    visibility_dimension,
-                    state.surroundings() | std::views::transform([](int t) { return static_cast<Tile>(t); })
-                      | std::ranges::to<std::vector<Tile>>());
-  }
+  Vector2d<Tile> ViewFromState(int visibility, const Swoq::Interface::PlayerState& state);
+  void           Print(const Vector2d<char>& chars);
+  void           Print(const Vector2d<Tile>& tiles);
 
-  inline char CharFromTile(Tile tile)
+  constexpr char CharFromTile(Tile tile)
   {
     switch(tile)
     {
@@ -39,26 +32,19 @@ namespace Bot
     std::terminate();
   }
 
-  inline void Print(const Vector2d<char>& chars)
+  class Map : public Vector2d<Tile>
   {
-    for(int y = 0; y < chars.Height(); ++y)
-    {
-      for(int x = 0; x < chars.Width(); ++x)
-      {
-        std::print("{}", chars[Offset(x, y)]);
-      }
-      std::print("\n");
-    }
-  }
+  public:
+    Map();
+    Map(const Map& other, Offset newSize);
+    std::shared_ptr<Map> Update(Offset pos, int visibility, const Vector2d<Tile>& view) const;
 
-  inline void Print(const Vector2d<Tile>& tiles)
-  {
-    Print(tiles.Map([](Tile t) { return CharFromTile(t); }));
-  }
+    std::optional<Offset> Exit() const { return m_exit; }
 
+  private:
+    void Update(Offset pos, const Vector2d<Tile>& view, Offset offset);
 
-  class Map
-  {
+    std::optional<Offset> m_exit;
   };
 
 } // namespace Bot

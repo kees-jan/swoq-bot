@@ -12,17 +12,14 @@ FetchContent_MakeAvailable(googletest)
 
 include(GoogleTest)
 
-# Define a dummy test executable with test discovery
 add_executable(test_bot_dummy
-  dummy_test.cpp
   ThreadSafeTests.cpp
-        TypeTraitsTests.cpp
+  TypeTraitsTests.cpp
+        OffsetTests.cpp
+  Vector2dTests.cpp
 )
 set_target_properties(test_bot_dummy PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON)
 
-target_link_libraries(test_bot_dummy PRIVATE GTest::gtest_main)
-set_property(TARGET test_bot_dummy PROPERTY CXX_STANDARD 23)
-
-target_include_directories(test_bot_dummy PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries(test_bot_dummy PRIVATE GTest::gtest_main bot_lib)
 
 gtest_discover_tests(test_bot_dummy)

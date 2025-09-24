@@ -46,6 +46,12 @@ namespace Bot
     {
     }
 
+    T& operator=(T&& other)
+    {
+      m_me->m_value = std::forward<T>(other);
+      return Get();
+    }
+
     T&       Get() { return m_me->m_value; }
     const T& Get() const { return m_me->m_value; }
 
