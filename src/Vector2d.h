@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cassert>
+#include <ranges>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -83,16 +84,11 @@ public:
     return data[ToIndex(offset)];
   }
 
-  // Map: apply callable f to each element, producing a Vector2d<R>
   template <typename F>
-  auto Map(F&& f) const -> Vector2d<std::invoke_result_t<F, const T&>>
+  auto Map(F&& f) const
   {
     using R = std::invoke_result_t<F, const T&>;
-    std::vector<R> out;
-    out.reserve(data.size());
-    for(const auto& v: data)
-      out.push_back(f(v));
-    return Vector2d<R>(Width(), Height(), std::move(out));
+    return Vector2d<R>(Width(), Height(), data | std::views::transform(f) | std::ranges::to<std::vector<R>>());
   }
 
 private:

@@ -15,6 +15,8 @@ include(GoogleTest)
 # Define a dummy test executable with test discovery
 add_executable(test_bot_dummy
   dummy_test.cpp
+  ThreadSafeTests.cpp
+        TypeTraitsTests.cpp
 )
 set_target_properties(test_bot_dummy PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON)
 

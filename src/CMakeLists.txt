@@ -10,6 +10,8 @@ add_library(bot_lib STATIC
         Player.cpp
         Player.h
         GameCallbacks.h
+        ThreadSafe.h
+        TypeTraits.h
 )
 target_link_libraries(bot_lib PUBLIC
         protobuf::libprotobuf
