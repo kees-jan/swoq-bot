@@ -33,7 +33,10 @@ namespace Bot
 
     for(const auto offset: OffsetsInRectangle(map.Size()))
     {
-      weights[offset] = map[offset] == Tile::TILE_WALL ? Inf : 1;
+      weights[offset] = (map[offset] == Tile::TILE_WALL || map[offset] == Tile::TILE_DOOR_RED
+                         || map[offset] == Tile::TILE_DOOR_GREEN || map[offset] == Tile::TILE_DOOR_BLUE)
+                          ? Inf
+                          : 1;
     }
 
     return weights;

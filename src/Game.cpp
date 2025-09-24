@@ -39,7 +39,10 @@ namespace Bot
     characterMap[p0]    = 'a';
     for(const auto& step: p0state.reversedPath)
     {
-      characterMap[step] = '*';
+      if(characterMap[step] == '.')
+      {
+        characterMap[step] = '*';
+      }
     }
     Print(characterMap);
     std::println();
