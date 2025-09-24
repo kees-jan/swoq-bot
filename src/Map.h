@@ -10,6 +10,7 @@ namespace Bot
   Vector2d<Tile> ViewFromState(int visibility, const Swoq::Interface::PlayerState& state);
   void           Print(const Vector2d<char>& chars);
   void           Print(const Vector2d<Tile>& tiles);
+  void           Print(const Vector2d<int>& ints);
 
   constexpr char CharFromTile(Tile tile)
   {
@@ -37,14 +38,17 @@ namespace Bot
   public:
     Map();
     Map(const Map& other, Offset newSize);
-    std::shared_ptr<Map> Update(Offset pos, int visibility, const Vector2d<Tile>& view) const;
+    [[nodiscard]] std::shared_ptr<Map> Update(Offset pos, int visibility, const Vector2d<Tile>& view) const;
 
-    std::optional<Offset> Exit() const { return m_exit; }
+    [[nodiscard]] std::optional<Offset> Exit() const { return m_exit; }
 
   private:
     void Update(Offset pos, const Vector2d<Tile>& view, Offset offset);
 
     std::optional<Offset> m_exit;
   };
+
+  Vector2d<int> WeightMap(const Vector2d<Tile>& map);
+
 
 } // namespace Bot

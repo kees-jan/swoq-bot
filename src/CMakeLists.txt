@@ -1,8 +1,11 @@
 add_library(bot_lib STATIC
+        Commands.h
+        Dijkstra.h
         Dotenv.cpp
         Game.cpp
         Game.h
         GameCallbacks.h
+        Map.cpp
         Map.h
         Offset.h
         Player.cpp
@@ -12,7 +15,6 @@ add_library(bot_lib STATIC
         ThreadSafe.h
         TypeTraits.h
         Vector2d.h
-        Map.cpp
 )
 target_link_libraries(bot_lib PUBLIC
         protobuf::libprotobuf

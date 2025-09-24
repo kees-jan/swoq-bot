@@ -2,12 +2,39 @@
 
 #include <print>
 
+#include <Dijkstra.h>
+
 #include "Map.h"
 
 namespace Bot
 {
   using Swoq::Interface::DirectedAction;
   using Swoq::Interface::GameStatus;
+
+  namespace
+  {
+    std::expected<DirectedAction, std::string> ActionFromDirection(Offset direction)
+    {
+      if(direction == East)
+      {
+        return DirectedAction::DIRECTED_ACTION_MOVE_EAST;
+      }
+      if(direction == West)
+      {
+        return DirectedAction::DIRECTED_ACTION_MOVE_WEST;
+      }
+      if(direction == North)
+      {
+        return DirectedAction::DIRECTED_ACTION_MOVE_NORTH;
+      }
+      if(direction == South)
+      {
+        return DirectedAction::DIRECTED_ACTION_MOVE_SOUTH;
+      }
+      return std::unexpected("Invalid direction");
+    }
+  } // namespace
+
 
   Player::Player(int id, GameCallbacks& callbacks, std::unique_ptr<Swoq::Game> game, ThreadSafe<std::shared_ptr<const Map>>& map)
     : m_id(id)
@@ -39,10 +66,19 @@ namespace Bot
     return updated;
   }
 
+  void Player::UpdatePlan()
+  {
+    auto map            = m_map.Get();
+    auto state          = m_state.Lock();
+    auto weights        = WeightMap(*map);
+    state->reversedPath = ReversedPath(
+      weights, state->position, [&map = *map](Offset p) { return map[p] == Tile::TILE_UNKNOWN || map[p] == Tile::TILE_EXIT; });
+    state->pathLength = state->reversedPath.size();
+  }
+
   std::expected<void, std::string> Player::Run()
   {
     // Game loop
-    auto move_east = true;
     while(m_game->state().status() == GameStatus::GAME_STATUS_ACTIVE)
     {
       auto level = m_game->state().level();
@@ -52,27 +88,40 @@ namespace Bot
         m_level = level;
       }
 
-      bool updated = UpdateMap();
-      m_callbacks.PrintMap();
-      if(updated)
+      if(UpdateMap())
       {
         m_callbacks.MapUpdated(m_id);
       }
+      UpdatePlan();
+      m_callbacks.PrintMap();
 
-      // Determine action
-      auto action = move_east ? DirectedAction::DIRECTED_ACTION_MOVE_EAST : DirectedAction::DIRECTED_ACTION_MOVE_SOUTH;
-      std::println("tick: {}, action: {}", m_game->state().tick(), action);
-
-      // Act
-      auto result = m_game->act(action);
-      if(!result)
+      auto state = m_state.Get();
+      if(!state.reversedPath.empty())
       {
-        std::println(std::cerr, "Action failed: {}", result.error());
-        return std::unexpected("Action failed");
-      }
+        auto direction = state.reversedPath.back() - state.position;
+        auto action    = ActionFromDirection(direction);
+        if(!action)
+        {
+          return std::unexpected(action.error());
+        }
 
-      // Prepare for next action
-      move_east = !move_east;
+        std::println("tick: {}, action: {} because position is {} and next is {}",
+                     m_game->state().tick(),
+                     *action,
+                     state.position,
+                     state.reversedPath.back());
+
+        auto result = m_game->act(*action);
+        if(!result)
+        {
+          std::println(std::cerr, "Action failed: {}", result.error());
+          return std::unexpected("Action failed");
+        }
+      }
+      else
+      {
+        return std::unexpected("No path found");
+      }
     }
 
     return {};

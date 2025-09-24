@@ -4,6 +4,9 @@
 #include <cassert>
 #include <print>
 
+#include "Dijkstra.h"
+#include "Swoq.hpp"
+
 namespace Bot
 {
   namespace
@@ -21,8 +24,21 @@ namespace Bot
       }
       return tiles;
     }
-
   } // namespace
+
+  Vector2d<int> WeightMap(const Vector2d<Tile>& map)
+  {
+    const int Inf = Infinity(map);
+    Vector2d  weights(map.Width(), map.Height(), Inf);
+
+    for(const auto offset: OffsetsInRectangle(map.Size()))
+    {
+      weights[offset] = map[offset] == Tile::TILE_WALL ? Inf : 1;
+    }
+
+    return weights;
+  }
+
 
   Vector2d<Swoq::Interface::Tile> ViewFromState(int visibility, const Swoq::Interface::PlayerState& state)
   {
@@ -66,6 +82,18 @@ namespace Bot
     Print(tiles.Map([](Tile t) { return CharFromTile(t); }));
   }
 
+  void Print(const Vector2d<int>& ints)
+  {
+    for(int y = 0; y < ints.Height(); ++y)
+    {
+      for(int x = 0; x < ints.Width(); ++x)
+      {
+        std::print("{}, ", ints[Offset(x, y)]);
+      }
+      std::print("\n");
+    }
+  }
+
   Map::Map()
     : Vector2d(0, 0)
   {
@@ -100,7 +128,7 @@ namespace Bot
         assert(view[p] == Tile::TILE_UNKNOWN || me[destination] == Tile::TILE_UNKNOWN || me[destination] == view[p]
                || view[p] == Tile::TILE_PLAYER);
 
-        if(view[p] == Tile::TILE_PLAYER || view[p] == Tile::TILE_UNKNOWN)
+        if(view[p] == Tile::TILE_UNKNOWN)
         {
           continue;
         }
@@ -108,7 +136,14 @@ namespace Bot
         {
           m_exit = destination;
         }
-        me[destination] = view[p];
+        if(view[p] == Tile::TILE_PLAYER)
+        {
+          me[destination] = Tile::TILE_EMPTY;
+        }
+        else
+        {
+          me[destination] = view[p];
+        }
       }
       else
       {

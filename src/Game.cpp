@@ -30,11 +30,17 @@ namespace Bot
   }
 
   void Game::MapUpdated(int) {}
+
   void Game::PrintMap()
   {
     auto   characterMap = m_map.Get()->Vector2d::Map([](Tile t) { return CharFromTile(t); });
-    Offset p0           = m_player.State().position;
+    auto   p0state      = m_player.State();
+    Offset p0           = p0state.position;
     characterMap[p0]    = 'a';
+    for(const auto& step: p0state.reversedPath)
+    {
+      characterMap[step] = '*';
+    }
     Print(characterMap);
     std::println();
   }

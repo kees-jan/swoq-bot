@@ -34,5 +34,10 @@ int main(int /*argc*/, char** /*argv*/)
   Bot::Game  botGame(connection, std::move(game));
   const auto result = botGame.Run();
 
+  if(!result)
+  {
+    std::println(std::cerr, "Failed to run game: {}", result.error());
+  }
+
   return result ? 0 : -1;
 }

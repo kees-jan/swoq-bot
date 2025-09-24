@@ -15,8 +15,10 @@ include(GoogleTest)
 add_executable(test_bot_dummy
   ThreadSafeTests.cpp
   TypeTraitsTests.cpp
-        OffsetTests.cpp
+  OffsetTests.cpp
   Vector2dTests.cpp
+  DijkstraTests.cpp
+  ReversedPathTests.cpp
 )
 set_target_properties(test_bot_dummy PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON)
 

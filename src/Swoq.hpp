@@ -193,3 +193,36 @@ struct std::formatter<Swoq::Interface::DirectedAction>
     return std::format_to(ctx.out(), "{}", s);
   }
 };
+
+template <>
+struct std::formatter<Swoq::Interface::Tile>
+{
+  constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin(); }
+  auto           format(const Swoq::Interface::Tile& tile, std::format_context& ctx) const
+  {
+    using enum Swoq::Interface::Tile;
+    std::string s;
+    switch(tile)
+    {
+    case TILE_UNKNOWN:
+      s = "TILE_UNKNOWN";
+      break;
+    case TILE_EMPTY:
+      s = "TILE_EMPTY";
+      break;
+    case TILE_PLAYER:
+      s = "TILE_PLAYER";
+      break;
+    case TILE_WALL:
+      s = "TILE_WALL";
+      break;
+    case TILE_EXIT:
+      s = "TILE_EXIT";
+      break;
+    default:
+      s = "<UNKNOWN>";
+      break;
+    }
+    return std::format_to(ctx.out(), "{}", s);
+  }
+};

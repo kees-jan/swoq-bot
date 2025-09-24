@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <coroutine>
+#include <format>
 #include <generator>
 #include <initializer_list>
 
@@ -66,10 +67,10 @@ constexpr bool   operator!=(const Offset& left, const Offset& right) noexcept { 
 constexpr Offset max(Offset left, Offset right) { return Offset{std::max(left.x, right.x), std::max(left.y, right.y)}; }
 
 
-constexpr Offset North(-1, 0);
-constexpr Offset South(1, 0);
-constexpr Offset West(0, -1);
-constexpr Offset East(0, 1);
+constexpr Offset North(0, -1);
+constexpr Offset South(0, 1);
+constexpr Offset West(-1, 0);
+constexpr Offset East(1, 0);
 constexpr Offset NorthEast(North + East);
 constexpr Offset SouthEast(South + East);
 constexpr Offset SouthWest(South + West);
@@ -99,3 +100,13 @@ inline std::generator<Offset> OffsetsInRectangle(Offset maxExclusive)
     }
   }
 }
+
+template <>
+struct std::formatter<Offset>
+{
+  constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin(); }
+  auto           format(const Offset& offset, std::format_context& ctx) const
+  {
+    return std::format_to(ctx.out(), "{{{}, {}}}", offset.x, offset.y);
+  }
+};

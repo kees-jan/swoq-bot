@@ -11,19 +11,23 @@ namespace Bot
 {
   struct PlayerState
   {
-    Offset position{0, 0};
+    Offset              position{0, 0};
+    std::vector<Offset> reversedPath;
+    std::size_t         pathLength = 0;
   };
 
   class Player
   {
   public:
     Player(int id, GameCallbacks& callbacks, std::unique_ptr<Swoq::Game> game, ThreadSafe<std::shared_ptr<const Map>>& map);
-    bool                             UpdateMap();
     std::expected<void, std::string> Run();
 
     PlayerState State() { return m_state.Get(); }
 
   private:
+    bool UpdateMap();
+    void UpdatePlan();
+
     int                                     m_id;
     GameCallbacks&                          m_callbacks;
     std::unique_ptr<Swoq::Game>             m_game;

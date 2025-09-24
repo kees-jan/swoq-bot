@@ -18,21 +18,21 @@ public:
     assert(m_width >= 0 && m_height >= 0);
   }
 
-  constexpr int Width() const noexcept { return m_width; }
-  constexpr int Height() const noexcept { return m_height; }
+  [[nodiscard]] constexpr int Width() const noexcept { return m_width; }
+  [[nodiscard]] constexpr int Height() const noexcept { return m_height; }
 
-  constexpr bool IsInRange(const Offset& offset) const noexcept
+  [[nodiscard]] constexpr bool IsInRange(const Offset& offset) const noexcept
   {
     return offset.x >= 0 && offset.x < m_width && offset.y >= 0 && offset.y < m_height;
   }
 
-  constexpr std::size_t ToIndex(const Offset& offset) const noexcept
+  [[nodiscard]] constexpr std::size_t ToIndex(const Offset& offset) const noexcept
   {
     assert(IsInRange(offset));
     return static_cast<std::size_t>(offset.y * m_width + offset.x);
   }
 
-  constexpr Offset ToOffset(std::size_t index) const noexcept
+  [[nodiscard]] constexpr Offset ToOffset(std::size_t index) const noexcept
   {
     assert(index < static_cast<std::size_t>(m_width * m_height));
     const auto i = static_cast<int>(index);
@@ -61,6 +61,12 @@ public:
     assert(static_cast<int>(data.size()) == width * height);
   }
 
+  constexpr Vector2d(int width, int height, std::initializer_list<T>&& initial_data) noexcept
+    : Vector2dBase(width, height)
+    , data(std::move(initial_data))
+  {
+    assert(static_cast<int>(data.size()) == width * height);
+  }
   constexpr const T& operator[](std::size_t index) const noexcept
   {
     assert(index < data.size());
