@@ -262,6 +262,9 @@ struct std::formatter<Swoq::Interface::Tile>
     case TILE_KEY_BLUE:
       s = "TILE_KEY_BLUE";
       break;
+    case TILE_BOULDER:
+      s = "TILE_BOULDER";
+      break;
     case Tile_INT_MIN_SENTINEL_DO_NOT_USE_:
     case Tile_INT_MAX_SENTINEL_DO_NOT_USE_:
       std::terminate();

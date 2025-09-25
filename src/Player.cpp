@@ -64,12 +64,12 @@ namespace Bot
 
       for(const auto offset: OffsetsInRectangle(map.Size()))
       {
-        auto tile = map[offset];
-        weights[offset] =
-          (tile == Tile::TILE_WALL || (IsDoor(tile) && navigationParameters.doorParameters.at(DoorKeyColor(tile)).avoidDoor)
-           || (IsKey(tile) && navigationParameters.doorParameters.at(DoorKeyColor(tile)).avoidKey))
-            ? Inf
-            : 1;
+        auto tile       = map[offset];
+        weights[offset] = (tile == Tile::TILE_WALL || tile == Tile::TILE_BOULDER
+                           || (IsDoor(tile) && navigationParameters.doorParameters.at(DoorKeyColor(tile)).avoidDoor)
+                           || (IsKey(tile) && navigationParameters.doorParameters.at(DoorKeyColor(tile)).avoidKey))
+                            ? Inf
+                            : 1;
       }
 
       return weights;

@@ -110,6 +110,8 @@ enum Tile {
     TILE_KEY_GREEN = 8;
     TILE_DOOR_BLUE = 9;
     TILE_KEY_BLUE = 10;
+    // Level 6 and higher:
+    TILE_BOULDER = 11;
 }
 
 enum Inventory {
@@ -118,4 +120,6 @@ enum Inventory {
     INVENTORY_KEY_RED = 1;
     INVENTORY_KEY_GREEN = 2;
     INVENTORY_KEY_BLUE = 3;
+    // Level 6 and higher:
+    INVENTORY_BOULDER = 4;
 }

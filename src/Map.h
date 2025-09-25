@@ -38,6 +38,8 @@ namespace Bot
       return 'g';
     case Tile::TILE_KEY_BLUE:
       return 'b';
+    case Tile::TILE_BOULDER:
+      return 'o';
     case Tile::Tile_INT_MAX_SENTINEL_DO_NOT_USE_:
     case Tile::Tile_INT_MIN_SENTINEL_DO_NOT_USE_:
       break;
