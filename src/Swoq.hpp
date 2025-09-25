@@ -195,10 +195,26 @@ struct std::formatter<Swoq::Interface::DirectedAction>
     case DIRECTED_ACTION_MOVE_WEST:
       s = "MOVE_WEST";
       break;
-    default:
-      s = "<UNKNOWN>";
+    case DIRECTED_ACTION_USE_NORTH:
+      s = "USE_NORTH";
       break;
+    case DIRECTED_ACTION_USE_EAST:
+      s = "USE_EAST";
+      break;
+    case DIRECTED_ACTION_USE_SOUTH:
+      s = "USE_SOUTH";
+      break;
+    case DIRECTED_ACTION_USE_WEST:
+      s = "USE_WEST";
+      break;
+    case DirectedAction_INT_MIN_SENTINEL_DO_NOT_USE_:
+    case DirectedAction_INT_MAX_SENTINEL_DO_NOT_USE_:
+      std::terminate();
     }
+
+    if(s.empty())
+      s = "<UNKNOWN>";
+
     return std::format_to(ctx.out(), "{}", s);
   }
 };
@@ -228,10 +244,32 @@ struct std::formatter<Swoq::Interface::Tile>
     case TILE_EXIT:
       s = "TILE_EXIT";
       break;
-    default:
-      s = "<UNKNOWN>";
+    case TILE_DOOR_RED:
+      s = "TILE_DOOR_RED";
       break;
+    case TILE_KEY_RED:
+      s = "TILE_KEY_RED";
+      break;
+    case TILE_DOOR_GREEN:
+      s = "TILE_DOOR_GREEN";
+      break;
+    case TILE_KEY_GREEN:
+      s = "TILE_KEY_GREEN";
+      break;
+    case TILE_DOOR_BLUE:
+      s = "TILE_DOOR_BLUE";
+      break;
+    case TILE_KEY_BLUE:
+      s = "TILE_KEY_BLUE";
+      break;
+    case Tile_INT_MIN_SENTINEL_DO_NOT_USE_:
+    case Tile_INT_MAX_SENTINEL_DO_NOT_USE_:
+      std::terminate();
     }
+
+    if(s.empty())
+      s = "<UNKNOWN>";
+
     return std::format_to(ctx.out(), "{}", s);
   }
 };

@@ -5,6 +5,7 @@
 #include <set>
 #include <variant>
 
+#include "Map.h"
 #include "Offset.h"
 #include "Swoq.pb.h"
 
@@ -40,12 +41,36 @@ namespace Bot
     Offset position;
   };
 
+  struct OpenDoor
+  {
+    constexpr OpenDoor(Offset doorPosition, DoorColor color_)
+      : position{doorPosition}
+      , color{color_}
+    {
+    }
+
+    Offset    position;
+    DoorColor color;
+  };
+
+  struct FetchKey
+  {
+    constexpr FetchKey(Offset keyPosition, DoorColor color_)
+      : position{keyPosition}
+      , color{color_}
+    {
+    }
+
+    Offset    position;
+    DoorColor color;
+  };
+
   constexpr struct Terminate_t
   {
   } Terminate;
 
 
-  using Command  = std::variant<Explore_t, VisitTiles, Terminate_t>;
+  using Command  = std::variant<Explore_t, VisitTiles, Terminate_t, Visit, FetchKey, OpenDoor>;
   using Commands = std::queue<Command>;
 
 } // namespace Bot

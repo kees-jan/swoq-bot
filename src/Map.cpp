@@ -24,24 +24,18 @@ namespace Bot
       }
       return tiles;
     }
-  } // namespace
 
-  Vector2d<int> WeightMap(const Vector2d<Tile>& map)
-  {
-    const int Inf = Infinity(map);
-    Vector2d  weights(map.Width(), map.Height(), Inf);
-
-    for(const auto offset: OffsetsInRectangle(map.Size()))
+    bool AreTilesConsistent(Tile viewTile, Tile destinationTile)
     {
-      weights[offset] = (map[offset] == Tile::TILE_WALL || map[offset] == Tile::TILE_DOOR_RED
-                         || map[offset] == Tile::TILE_DOOR_GREEN || map[offset] == Tile::TILE_DOOR_BLUE)
-                          ? Inf
-                          : 1;
+      bool const result = viewTile == Tile::TILE_UNKNOWN || destinationTile == Tile::TILE_UNKNOWN || destinationTile == viewTile
+                          || IsKey(destinationTile) || IsDoor(destinationTile) || viewTile == Tile::TILE_PLAYER;
+
+      if(!result)
+        std::println("Tiles are not consistent: view {}, destination {}", viewTile, destinationTile);
+
+      return result;
     }
-
-    return weights;
-  }
-
+  } // namespace
 
   Vector2d<Swoq::Interface::Tile> ViewFromState(int visibility, const Swoq::Interface::PlayerState& state)
   {
@@ -104,6 +98,8 @@ namespace Bot
 
   Map::Map(const Map& other, Offset newSize)
     : Vector2d(newSize.x, newSize.y, NewMapData(other, newSize))
+    , m_exit(other.m_exit)
+    , m_doorData(other.m_doorData)
   {
   }
 
@@ -119,6 +115,8 @@ namespace Bot
     return result;
   }
 
+  const DoorMap& Map::DoorData() const { return m_doorData; }
+
   void Map::Update(Offset pos, const Vector2d<Tile>& view, Offset offset)
   {
     auto& me = *this;
@@ -128,10 +126,9 @@ namespace Bot
       const auto destination = pos + p - offset;
       if(IsInRange(destination))
       {
-        assert(view[p] == Tile::TILE_UNKNOWN || me[destination] == Tile::TILE_UNKNOWN || me[destination] == view[p]
-               || view[p] == Tile::TILE_PLAYER);
+        assert(AreTilesConsistent(view[p], me[destination]));
 
-        if(view[p] == Tile::TILE_UNKNOWN)
+        if(view[p] == Tile::TILE_UNKNOWN || IsDoor(me[destination]) || IsKey(me[destination]))
         {
           continue;
         }
@@ -139,11 +136,15 @@ namespace Bot
         {
           m_exit = destination;
         }
-        if(view[p] == Tile::TILE_PLAYER)
+        if(IsDoor(view[p]))
         {
-          me[destination] = Tile::TILE_EMPTY;
+          m_doorData[DoorKeyColor(view[p])].doorPosition = destination;
         }
-        else
+        if(IsKey(view[p]))
+        {
+          m_doorData[DoorKeyColor(view[p])].keyPosition = destination;
+        }
+        if(view[p] != Tile::TILE_PLAYER)
         {
           me[destination] = view[p];
         }
