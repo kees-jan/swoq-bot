@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <expected>
 
 #include "Commands.h"
@@ -10,11 +11,16 @@
 
 namespace Bot
 {
+  using Swoq::Interface::DirectedAction;
+
   struct PlayerState
   {
-    Offset              position{0, 0};
-    std::vector<Offset> reversedPath;
-    std::size_t         pathLength = 0;
+    Offset                                position{0, 0};
+    DirectedAction                        next;
+    std::vector<Offset>                   reversedPath;
+    std::size_t                           pathLength         = 0;
+    std::chrono::steady_clock::time_point lastCommandTime    = std::chrono::steady_clock::now();
+    bool                                  terminateRequested = false;
   };
 
   class Player
@@ -24,11 +30,16 @@ namespace Bot
     std::expected<void, std::string> Run();
 
     PlayerState State() { return m_state.Get(); }
+    void        SetCommands(Commands commands);
+    void        SetCommand(Command command);
 
   private:
     std::expected<bool, std::string> VisitTiles(const std::set<Tile>& tiles);
-     bool                             UpdateMap();
-    std::expected<bool, std::string> UpdatePlan();
+    std::expected<bool, std::string> TerminateRequested();
+    bool                             UpdateMap();
+    std::expected<void, std::string> UpdatePlan();
+    std::expected<bool, std::string> DoCommandIfAny();
+    bool                             WaitForCommands();
 
     int                                     m_id;
     GameCallbacks&                          m_callbacks;

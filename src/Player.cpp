@@ -33,6 +33,8 @@ namespace Bot
       }
       return std::unexpected("Invalid direction");
     }
+
+    constexpr std::chrono::seconds delay(8);
   } // namespace
 
 
@@ -68,18 +70,75 @@ namespace Bot
     return updated;
   }
 
-  std::expected<bool, std::string> Player::UpdatePlan()
+  std::expected<bool, std::string> Player::DoCommandIfAny()
   {
     auto commands = m_commands.Lock();
-    if(commands->empty())
+
+    std::expected<bool, std::string> result = true;
+    while(result && *result && !commands->empty())
     {
-      return true;
+      result = std::visit(Visitor{[&](Explore_t) { return VisitTiles({Tile::TILE_UNKNOWN}); },
+                                  [&](const Bot::VisitTiles& visitTiles) { return VisitTiles(visitTiles.tiles); },
+                                  [&](Terminate_t) { return TerminateRequested(); }},
+                          commands->front());
+
+      if(!result)
+        return result;
+      if(*result)
+        commands->pop();
     }
-    auto command = commands->front();
-    return std::visit(Visitor{[&](Explore_t) { return VisitTiles({Tile::TILE_UNKNOWN}); },
-                              [&](const Bot::VisitTiles& visitTiles) { return VisitTiles(visitTiles.tiles); }},
-                      command);
+    assert(result);
+    assert(!*result || commands->empty());
+
+    return !commands->empty();
   }
+
+  bool Player::WaitForCommands()
+  {
+    auto lastCommandTime = m_state.Get().lastCommandTime;
+    auto commands        = m_commands.Lock();
+    return commands.WaitUntil(lastCommandTime + delay, [&] { return !commands->empty(); });
+  }
+
+  std::expected<void, std::string> Player::UpdatePlan()
+  {
+    std::expected<bool, std::string> commandDone    = false;
+    bool                             commandArrived = true;
+
+    while(commandDone && !*commandDone && commandArrived)
+    {
+      commandDone = DoCommandIfAny();
+      if(!commandDone)
+        return std::unexpected(commandDone.error());
+
+      if(!*commandDone)
+      {
+        m_callbacks.Finished(m_id);
+        commandArrived = WaitForCommands();
+      }
+    }
+
+    assert(*commandDone || !commandArrived);
+    if(!*commandDone)
+    {
+      std::println("Player {}: No commands found: {}", m_id, DirectedAction::DIRECTED_ACTION_NONE);
+      auto state  = m_state.Lock();
+      state->next = DirectedAction::DIRECTED_ACTION_NONE;
+      state->reversedPath.clear();
+      state->pathLength = 0;
+    }
+
+    return {};
+  }
+
+  void Player::SetCommands(Commands commands) { m_commands.Lock()->swap(commands); }
+
+  void Player::SetCommand(Command command)
+  {
+    Commands commands({command});
+    SetCommands(commands);
+  }
+
 
   std::expected<bool, std::string> Player::VisitTiles(const std::set<Tile>& tiles)
   {
@@ -90,9 +149,34 @@ namespace Bot
       ReversedPath(weights, state->position, [&map = *map, &tiles](Offset p) { return tiles.contains(map[p]); });
     state->pathLength = state->reversedPath.size();
 
+    if(!state->reversedPath.empty())
+    {
+      auto direction = state->reversedPath.back() - state->position;
+      auto action    = ActionFromDirection(direction);
+      if(!action)
+      {
+        return std::unexpected(action.error());
+      }
+
+      std::println("Player: {}, tick: {}, action: {} because position is {} and next is {}",
+                   m_id,
+                   m_game->state().tick(),
+                   *action,
+                   state->position,
+                   state->reversedPath.back());
+
+      state->next = *action;
+    }
+
     return state->pathLength == 0;
   }
 
+  std::expected<bool, std::string> Player::TerminateRequested()
+  {
+    std::println("Player {}: Terminate requested", m_id);
+    m_state.Lock()->terminateRequested = true;
+    return false;
+  }
 
   std::expected<void, std::string> Player::Run()
   {
@@ -115,39 +199,21 @@ namespace Bot
       {
         return std::unexpected(finished.error());
       }
-      if(*finished)
-      {
-        return {};
-      }
 
       m_callbacks.PrintMap();
 
-      auto state = m_state.Get();
-      if(!state.reversedPath.empty())
+      auto state = m_state.Lock();
+      if(state->terminateRequested)
       {
-        auto direction = state.reversedPath.back() - state.position;
-        auto action    = ActionFromDirection(direction);
-        if(!action)
-        {
-          return std::unexpected(action.error());
-        }
-
-        std::println("tick: {}, action: {} because position is {} and next is {}",
-                     m_game->state().tick(),
-                     *action,
-                     state.position,
-                     state.reversedPath.back());
-
-        auto result = m_game->act(*action);
-        if(!result)
-        {
-          std::println(std::cerr, "Action failed: {}", result.error());
-          return std::unexpected("Action failed");
-        }
+        std::println("Player {}: Terminating", m_id);
+        return {};
       }
-      else
+      auto result            = m_game->act(state->next);
+      state->lastCommandTime = std::chrono::steady_clock::now();
+      if(!result)
       {
-        return std::unexpected("No path found");
+        std::println(std::cerr, "Player {}: Action failed: {}", m_id, result.error());
+        return std::unexpected("Action failed");
       }
     }
 

@@ -21,7 +21,7 @@ namespace Bot
     void LevelReached(int reportingPlayer, int level) override;
     void MapUpdated(int id) override;
     void PrintMap() override;
-
+    void Finished(int m_id) override;
 
   private:
     Swoq::GameConnection                   m_gameConnection;

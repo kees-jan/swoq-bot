@@ -48,4 +48,13 @@ namespace Bot
     std::println();
   }
 
+  void Game::Finished(int m_id)
+  {
+    if(m_id == 0)
+    {
+      std::println("Terminating player 0");
+      m_player.SetCommand(Terminate);
+    }
+  }
+
 } // namespace Bot

@@ -40,12 +40,12 @@ namespace Bot
     Offset position;
   };
 
-  constexpr struct Wait_t
+  constexpr struct Terminate_t
   {
-  } Wait;
+  } Terminate;
 
 
-  using Command  = std::variant<Explore_t, VisitTiles>;
+  using Command  = std::variant<Explore_t, VisitTiles, Terminate_t>;
   using Commands = std::queue<Command>;
 
 } // namespace Bot

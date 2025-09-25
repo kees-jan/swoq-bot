@@ -1,5 +1,6 @@
 #pragma once
 
+#include <condition_variable>
 #include <memory>
 #include <mutex>
 #include <type_traits>
@@ -27,11 +28,17 @@ namespace Bot
       return m_value;
     }
 
-    ThreadSafeProxy<T> Lock() { return ThreadSafeProxy<T>(this); }
+    ThreadSafeProxy<T> Lock()
+    {
+      auto result = ThreadSafeProxy<T>(this);
+      m_condition.notify_all();
+      return result;
+    }
 
   private:
-    std::mutex m_mutex;
-    T          m_value;
+    std::mutex              m_mutex;
+    std::condition_variable m_condition;
+    T                       m_value;
 
     friend class ThreadSafeProxy<T>;
   };
@@ -109,6 +116,12 @@ namespace Bot
       {
         return std::addressof(Get());
       }
+    }
+
+    template <typename Predicate>
+    bool WaitUntil(std::chrono::steady_clock::time_point timePoint, Predicate&& predicate)
+    {
+      return m_me->m_condition.wait_until(m_lock, timePoint, std::forward<Predicate>(predicate));
     }
 
   private:
