@@ -47,6 +47,8 @@ namespace Bot
     std::println("- seed: {}", m_game->seed());
     std::println("- map size: {}x{}", m_game->map_height(), m_game->map_width());
     std::println("- visibility: {}", m_game->visibility_range());
+
+    m_commands.Lock()->push(Bot::VisitTiles({Tile::TILE_EXIT, Tile::TILE_UNKNOWN}));
   }
 
   bool Player::UpdateMap()
@@ -66,15 +68,31 @@ namespace Bot
     return updated;
   }
 
-  void Player::UpdatePlan()
+  std::expected<bool, std::string> Player::UpdatePlan()
   {
-    auto map            = m_map.Get();
-    auto state          = m_state.Lock();
-    auto weights        = WeightMap(*map);
-    state->reversedPath = ReversedPath(
-      weights, state->position, [&map = *map](Offset p) { return map[p] == Tile::TILE_UNKNOWN || map[p] == Tile::TILE_EXIT; });
-    state->pathLength = state->reversedPath.size();
+    auto commands = m_commands.Lock();
+    if(commands->empty())
+    {
+      return true;
+    }
+    auto command = commands->front();
+    return std::visit(Visitor{[&](Explore_t) { return VisitTiles({Tile::TILE_UNKNOWN}); },
+                              [&](const Bot::VisitTiles& visitTiles) { return VisitTiles(visitTiles.tiles); }},
+                      command);
   }
+
+  std::expected<bool, std::string> Player::VisitTiles(const std::set<Tile>& tiles)
+  {
+    auto map     = m_map.Get();
+    auto state   = m_state.Lock();
+    auto weights = WeightMap(*map);
+    state->reversedPath =
+      ReversedPath(weights, state->position, [&map = *map, &tiles](Offset p) { return tiles.contains(map[p]); });
+    state->pathLength = state->reversedPath.size();
+
+    return state->pathLength == 0;
+  }
+
 
   std::expected<void, std::string> Player::Run()
   {
@@ -92,7 +110,16 @@ namespace Bot
       {
         m_callbacks.MapUpdated(m_id);
       }
-      UpdatePlan();
+      auto finished = UpdatePlan();
+      if(!finished)
+      {
+        return std::unexpected(finished.error());
+      }
+      if(*finished)
+      {
+        return {};
+      }
+
       m_callbacks.PrintMap();
 
       auto state = m_state.Get();
