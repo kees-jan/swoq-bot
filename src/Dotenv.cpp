@@ -68,7 +68,7 @@ std::optional<int> get_env_int(std::string_view name)
   }
   catch(const std::exception& ex)
   {
-    std::println(std::cerr, "Invalid integer value for {}: {}", name, ex.what());
+    std::println("Invalid integer value for {}: {}", name, ex.what());
     return std::nullopt;
   }
 }
@@ -87,7 +87,7 @@ std::string require_env_str(std::string_view name)
   auto value = get_env_str(name);
   if(!value)
   {
-    std::println(std::cerr, "Environment variable {} not set", name);
+    std::println("Environment variable {} not set", name);
     std::exit(-1);
   }
   return *value;

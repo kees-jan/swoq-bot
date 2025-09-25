@@ -39,6 +39,8 @@ public:
     return Offset{i % m_width, i / m_width};
   }
 
+  [[nodiscard]] constexpr Offset Size() const noexcept { return Offset{m_width, m_height}; }
+
 private:
   int m_width;
   int m_height;

@@ -27,7 +27,7 @@ int main(int /*argc*/, char** /*argv*/)
   auto start_result  = connection.start(level, seed);
   if(!start_result)
   {
-    std::println(std::cerr, "Failed to start game: {}", start_result.error());
+    std::println("Failed to start game: {}", start_result.error());
     return -1;
   }
   auto& game = (*start_result);
@@ -37,7 +37,7 @@ int main(int /*argc*/, char** /*argv*/)
 
   if(!result)
   {
-    std::println(std::cerr, "Failed to run game: {}", result.error());
+    std::println("Failed to run game: {}", result.error());
   }
 
   return result ? 0 : -1;

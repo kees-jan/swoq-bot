@@ -2,5 +2,6 @@
 
 namespace Bot::Debugging
 {
-  constexpr bool PrintMaps = true;
-}
+  constexpr bool PrintGameMaps   = false;
+  constexpr bool PrintPlayerMaps = true;
+} // namespace Bot::Debugging

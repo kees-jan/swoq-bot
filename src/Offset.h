@@ -86,6 +86,22 @@ constexpr Offset One(SouthEast);
 constexpr std::initializer_list<Offset> Directions{Up, Down, Left, Right};
 constexpr std::initializer_list<Offset> AllDirections{North, NorthEast, East, SouthEast, South, SouthWest, West, NorthWest};
 
+struct OffsetLess
+{
+  constexpr bool operator()(const Offset& a, const Offset& b) const noexcept
+  {
+    if(a.y < b.y)
+    {
+      return true;
+    }
+    if(a.y > b.y)
+    {
+      return false;
+    }
+    return a.x < b.x;
+  }
+};
+
 inline std::generator<Offset> OffsetsInRectangle(Offset maxExclusive)
 {
   if(maxExclusive.x <= 0 || maxExclusive.y <= 0)

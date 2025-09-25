@@ -17,6 +17,14 @@ namespace Bot
   {
   } Explore;
 
+  constexpr struct Terminate_t
+  {
+  } Terminate;
+
+  constexpr struct DropBoulder_t
+  {
+  } DropBoulder;
+
   struct VisitTiles
   {
     constexpr explicit VisitTiles(Tile tile)
@@ -55,22 +63,25 @@ namespace Bot
 
   struct FetchKey
   {
-    constexpr FetchKey(Offset keyPosition, DoorColor color_)
+    constexpr FetchKey(Offset keyPosition)
       : position{keyPosition}
-      , color{color_}
     {
     }
 
-    Offset    position;
-    DoorColor color;
+    Offset position;
   };
 
-  constexpr struct Terminate_t
+  struct FetchBoulder
   {
-  } Terminate;
+    constexpr FetchBoulder(Offset keyPosition)
+      : position{keyPosition}
+    {
+    }
 
+    Offset position;
+  };
 
-  using Command  = std::variant<Explore_t, VisitTiles, Terminate_t, Visit, FetchKey, OpenDoor>;
+  using Command  = std::variant<Explore_t, VisitTiles, Terminate_t, Visit, FetchKey, OpenDoor, FetchBoulder, DropBoulder_t>;
   using Commands = std::queue<Command>;
 
 } // namespace Bot

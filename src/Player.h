@@ -13,24 +13,6 @@ namespace Bot
 {
   using Swoq::Interface::DirectedAction;
 
-  struct DoorParameters
-  {
-    bool avoidKey  = true;
-    bool avoidDoor = true;
-  };
-
-  using DoorParameterMap = std::map<DoorColor, DoorParameters>;
-  using DoorOpenMap      = std::map<DoorColor, bool>;
-
-  struct NavigationParameters
-  {
-    DoorParameterMap doorParameters{DoorColors
-                                    | std::views::transform([](auto color) { return std::pair(color, DoorParameters{}); })
-                                    | std::ranges::to<DoorParameterMap>()};
-    DoorOpenMap      openedDoors{DoorColors | std::views::transform([](auto color) { return std::pair(color, false); })
-                            | std::ranges::to<DoorOpenMap>()};
-  };
-
   struct PlayerState
   {
 
@@ -41,6 +23,7 @@ namespace Bot
     std::chrono::steady_clock::time_point lastCommandTime    = std::chrono::steady_clock::now();
     bool                                  terminateRequested = false;
     NavigationParameters                  navigationParameters;
+    std::optional<Vector2d<Tile>>         currentView;
   };
 
   class Player
@@ -54,18 +37,55 @@ namespace Bot
     void        SetCommand(Command command);
 
   private:
+    void                             InitializeCommands();
     void                             InitializeLevel();
     void                             InitializeMap();
+    bool                             UpdateMap();
+    std::shared_ptr<const Map>       GetMap();
     void                             InitializeNavigation();
     std::expected<bool, std::string> VisitTiles(const std::set<Tile>& tiles);
     std::expected<bool, std::string> Visit(Offset destination);
-    std::expected<bool, std::string> FetchKey(Offset destination, DoorColor color);
     std::expected<bool, std::string> OpenDoor(Offset destination, DoorColor color);
+    std::expected<bool, std::string> FetchBoulder(Offset destination);
+    std::expected<bool, std::string> DropBoulder();
     std::expected<bool, std::string> TerminateRequested();
-    bool                             UpdateMap();
     std::expected<void, std::string> UpdatePlan();
     std::expected<bool, std::string> DoCommandIfAny();
     bool                             WaitForCommands();
+    void                             PrintMap();
+    std::expected<void, std::string> StepAlongPath(ThreadSafeProxy<PlayerState>& state);
+    std::expected<void, std::string> StepAlongPathOrUse(ThreadSafeProxy<PlayerState>& state);
+    std::expected<bool, std::string> MoveToDestination(ThreadSafeProxy<PlayerState>& state);
+    std::expected<bool, std::string> MoveAlongPathThenOpenDoor(ThreadSafeProxy<PlayerState>& state,
+                                                               Offset                        destination,
+                                                               DoorColor                     color,
+                                                               std::shared_ptr<const Map>    map);
+    std::expected<bool, std::string> MoveAlongPathThenUse(ThreadSafeProxy<PlayerState>& state,
+                                                          std::shared_ptr<const Map>    map,
+                                                          Tile                          expectedTileAfterUse,
+                                                          std::string_view              message);
+
+    template <typename Predicate, typename Callable>
+    std::expected<bool, std::string>
+      ComputePathAndThen(const std::shared_ptr<const Map>& map, Predicate&& predicate, Callable&& callable)
+    {
+      return ComputePathAndThen(map, std::nullopt, std::forward<Predicate>(predicate), std::forward<Callable>(callable));
+    }
+
+    template <typename Predicate, typename Callable>
+    std::expected<bool, std::string> ComputePathAndThen(const std::shared_ptr<const Map>& map,
+                                                        std::optional<Offset>             destination,
+                                                        Predicate&&                       predicate,
+                                                        Callable&&                        callable)
+    {
+      auto state          = m_state.Lock();
+      auto weights        = WeightMap(*map, state->navigationParameters, destination);
+      state->reversedPath = ReversedPath(weights, state->position, std::forward<Predicate>(predicate));
+      state->pathLength   = state->reversedPath.size();
+
+      return std::forward<Callable>(callable)(state);
+    }
+
 
     int                                     m_id;
     GameCallbacks&                          m_callbacks;

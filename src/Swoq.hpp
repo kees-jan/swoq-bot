@@ -280,3 +280,39 @@ struct std::formatter<Swoq::Interface::Tile>
     return std::format_to(ctx.out(), "{}", s);
   }
 };
+
+template <>
+struct std::formatter<Swoq::Interface::GameStatus>
+{
+  constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin(); }
+  auto           format(const Swoq::Interface::GameStatus& result, std::format_context& ctx) const
+  {
+    using enum Swoq::Interface::GameStatus;
+    std::string s = "<UNKNOWN>";
+    switch(result)
+    {
+    case GAME_STATUS_ACTIVE:
+      s = "GAME_STATUS_ACTIVE";
+      break;
+    case GAME_STATUS_FINISHED_SUCCESS:
+      s = "GAME_STATUS_FINISHED_SUCCESS";
+      break;
+    case GAME_STATUS_FINISHED_TIMEOUT:
+      s = "GAME_STATUS_FINISHED_TIMEOUT";
+      break;
+    case GAME_STATUS_FINISHED_NO_PROGRESS:
+      s = "GAME_STATUS_FINISHED_NO_PROGRESS";
+      break;
+    case GAME_STATUS_FINISHED_PLAYER_DIED:
+      s = "GAME_STATUS_FINISHED_PLAYER_DIED";
+      break;
+    case GAME_STATUS_FINISHED_CANCELED:
+      s = "GAME_STATUS_FINISHED_CANCELED";
+      break;
+    case GameStatus_INT_MIN_SENTINEL_DO_NOT_USE_:
+    case GameStatus_INT_MAX_SENTINEL_DO_NOT_USE_:
+      std::terminate();
+    }
+    return std::format_to(ctx.out(), "{}", s);
+  }
+};

@@ -47,6 +47,33 @@ namespace Bot
     std::terminate();
   }
 
+  constexpr bool IsPotentiallyWalkable(Tile tile)
+  {
+    switch(tile)
+    {
+    case Tile::TILE_UNKNOWN:
+    case Tile::TILE_EMPTY:
+    case Tile::TILE_EXIT:
+    case Tile::TILE_PLAYER:
+    case Tile::TILE_DOOR_RED:
+    case Tile::TILE_DOOR_GREEN:
+    case Tile::TILE_DOOR_BLUE:
+    case Tile::TILE_KEY_RED:
+    case Tile::TILE_KEY_GREEN:
+    case Tile::TILE_KEY_BLUE:
+    case Tile::TILE_BOULDER:
+      return true;
+
+    case Tile::TILE_WALL:
+      return false;
+
+    case Tile::Tile_INT_MAX_SENTINEL_DO_NOT_USE_:
+    case Tile::Tile_INT_MIN_SENTINEL_DO_NOT_USE_:
+      break;
+    }
+    std::terminate();
+  }
+
   enum class DoorColor : std::uint8_t
   {
     Red,
@@ -71,18 +98,103 @@ namespace Bot
 
   using DoorMap = std::map<DoorColor, DoorData>;
 
+  struct DoorParameters
+  {
+    bool avoidDoor = true;
+  };
+
+  using DoorParameterMap = std::map<DoorColor, DoorParameters>;
+  using DoorOpenMap      = std::map<DoorColor, bool>;
+
+  struct NavigationParameters
+  {
+    DoorParameterMap             doorParameters{DoorColors
+                                    | std::views::transform([](auto color) { return std::pair(color, DoorParameters{}); })
+                                    | std::ranges::to<DoorParameterMap>()};
+    bool                         avoidBoulders = true;
+    std::set<Offset, OffsetLess> badBoulders{};
+    std::set<Offset, OffsetLess> goodBoulders{};
+  };
+
+  Vector2d<int> WeightMap(const Vector2d<Tile>&        map,
+                          const NavigationParameters&  navigationParameters,
+                          const std::optional<Offset>& destination = std::nullopt);
+
+  struct TileComparisonResult
+  {
+    bool needsUpdate   = false;
+    bool newBoulder    = false;
+    bool stuffHasMoved = false;
+
+    constexpr static TileComparisonResult NoChange() { return TileComparisonResult{}; }
+    constexpr static TileComparisonResult NeedsUpdate() { return TileComparisonResult{true, false, false}; }
+    constexpr static TileComparisonResult NewBoulder() { return TileComparisonResult{true, true, false}; }
+    constexpr static TileComparisonResult StuffHasMoved() { return TileComparisonResult{false, false, true}; }
+  };
+
+  struct MapComparisonResult
+  {
+    Offset                       newMapSize;
+    bool                         needsUpdate = false;
+    std::set<Offset, OffsetLess> newBoulders;
+    bool                         stuffHasMoved = false;
+
+    constexpr explicit MapComparisonResult(Offset newMapSize_)
+      : newMapSize(newMapSize_)
+    {
+    }
+
+    constexpr explicit MapComparisonResult(const Vector2dBase& map)
+      : newMapSize(map.Size())
+    {
+    }
+
+    constexpr void Update(TileComparisonResult tileComparison, Offset position)
+    {
+      needsUpdate |= tileComparison.needsUpdate;
+      stuffHasMoved |= tileComparison.stuffHasMoved;
+      if(tileComparison.newBoulder)
+      {
+        newBoulders.insert(position);
+      }
+    }
+  };
+
+  class Map;
+
+  struct MapUpdateResult
+  {
+    std::shared_ptr<Map>         map;
+    std::set<Offset, OffsetLess> newBoulders;
+    bool                         stuffHasMoved = false;
+
+    MapUpdateResult(std::shared_ptr<Map>  map_,
+                    MapComparisonResult&& comparisonResult) // NOLINT(*-rvalue-reference-param-not-moved)
+      : map(std::move(map_))
+      , newBoulders(std::move(comparisonResult.newBoulders))
+      , stuffHasMoved(comparisonResult.stuffHasMoved)
+    {
+    }
+  };
+
   class Map : public Vector2d<Tile>
   {
   public:
-    Map();
+    explicit Map(Offset size = {0, 0});
     Map(const Map& other, Offset newSize);
-    [[nodiscard]] std::shared_ptr<Map> Update(Offset pos, int visibility, const Vector2d<Tile>& view) const;
+    [[nodiscard]] MapUpdateResult      Update(Offset pos, int visibility, const Vector2d<Tile>& view) const;
+    [[nodiscard]] std::shared_ptr<Map> IncludeLocalView(Offset pos, int visibility, const Vector2d<Tile>& view) const;
 
     [[nodiscard]] std::optional<Offset> Exit() const { return m_exit; }
-    const DoorMap&                      DoorData() const;
+    [[nodiscard]] const DoorMap&        DoorData() const;
+    [[nodiscard]] bool                  IsBadBoulder(Offset position) const;
+    [[nodiscard]] bool                  IsGoodBoulder(Offset position) const;
 
   private:
-    void Update(Offset pos, const Vector2d<Tile>& view, Offset offset);
+    [[nodiscard]] MapComparisonResult Compare(Offset pos, const Vector2d<Tile>& view, Offset offset) const;
+    void                              Update(Offset pos, const Vector2d<Tile>& view, Offset offset);
+    void                              IncludeLocalView(Offset pos, const Vector2d<Tile>& view, Offset offset);
+    void                              HandleUnknownBoulder(Offset playerPosition, Offset boulderPosition);
 
     std::optional<Offset> m_exit;
     DoorMap m_doorData{DoorColors | std::views::transform([](auto color) { return std::pair(color, Bot::DoorData{}); })
@@ -97,6 +209,20 @@ namespace Bot
   constexpr bool IsDoor(Tile tile)
   {
     return tile == Tile::TILE_DOOR_RED || tile == Tile::TILE_DOOR_GREEN || tile == Tile::TILE_DOOR_BLUE;
+  }
+
+  constexpr Tile DoorForColor(DoorColor color)
+  {
+    switch(color)
+    {
+    case DoorColor::Red:
+      return Tile::TILE_DOOR_RED;
+    case DoorColor::Green:
+      return Tile::TILE_DOOR_GREEN;
+    case DoorColor::Blue:
+      return Tile::TILE_DOOR_BLUE;
+    }
+    assert(false);
   }
 
   constexpr DoorColor DoorKeyColor(Tile t)
@@ -121,6 +247,20 @@ namespace Bot
       assert(false);
       break;
     }
+  }
+
+  std::optional<Offset>
+    ReachablePositionNextTo(const Vector2d<Tile>& map, Offset from, Offset to, const NavigationParameters& navigationParameters);
+
+  template <typename Callable>
+  std::optional<Offset> ClosestReachable(const Vector2d<Tile>&       map,
+                                         Offset                      from,
+                                         const NavigationParameters& navigationParameters,
+                                         Callable&&                  callable)
+  {
+    auto weights             = WeightMap(map, navigationParameters);
+    auto [dist, destination] = DistanceMap(weights, from, std::forward<Callable>(callable));
+    return destination;
   }
 
 } // namespace Bot

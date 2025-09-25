@@ -27,15 +27,118 @@ namespace Bot
 
     bool AreTilesConsistent(Tile viewTile, Tile destinationTile)
     {
-      bool const result = viewTile == Tile::TILE_UNKNOWN || destinationTile == Tile::TILE_UNKNOWN || destinationTile == viewTile
-                          || IsKey(destinationTile) || IsDoor(destinationTile) || viewTile == Tile::TILE_PLAYER;
+      bool const result = viewTile == Tile::TILE_UNKNOWN || destinationTile == Tile::TILE_UNKNOWN
+                          || viewTile == Tile::TILE_BOULDER || destinationTile == Tile::TILE_BOULDER
+                          || destinationTile == viewTile || IsKey(destinationTile) || IsDoor(destinationTile)
+                          || viewTile == Tile::TILE_PLAYER;
 
       if(!result)
         std::println("Tiles are not consistent: view {}, destination {}", viewTile, destinationTile);
 
       return result;
     }
+
+    constexpr TileComparisonResult CompareTiles(Tile map, Tile view)
+    {
+      assert(map != Tile::Tile_INT_MAX_SENTINEL_DO_NOT_USE_ && map != Tile::Tile_INT_MIN_SENTINEL_DO_NOT_USE_);
+      assert(view != Tile::Tile_INT_MAX_SENTINEL_DO_NOT_USE_ && view != Tile::Tile_INT_MIN_SENTINEL_DO_NOT_USE_);
+
+      switch(map)
+      {
+      case Tile::TILE_UNKNOWN:
+        switch(view)
+        {
+        case Tile::TILE_UNKNOWN:
+          return TileComparisonResult::NoChange();
+        case Tile::TILE_BOULDER:
+          return TileComparisonResult::NewBoulder();
+        default:
+          return TileComparisonResult::NeedsUpdate();
+        }
+      case Tile::TILE_EMPTY:
+        switch(view)
+        {
+        case Tile::TILE_UNKNOWN:
+        case Tile::TILE_EMPTY:
+        case Tile::TILE_PLAYER:
+          return TileComparisonResult::NoChange();
+        case Tile::TILE_BOULDER:
+          return TileComparisonResult::StuffHasMoved();
+        default:
+          assert(false);
+        }
+      case Tile::TILE_WALL:
+        assert(view == Tile::TILE_WALL || view == Tile::TILE_UNKNOWN);
+        return TileComparisonResult::NoChange();
+      case Tile::TILE_EXIT:
+        assert(view == Tile::TILE_EXIT || view == Tile::TILE_UNKNOWN || view == Tile::TILE_PLAYER);
+        return TileComparisonResult::NoChange();
+      case Tile::TILE_PLAYER:
+        assert(false);
+
+      case Tile::TILE_DOOR_RED:
+      case Tile::TILE_DOOR_GREEN:
+      case Tile::TILE_DOOR_BLUE:
+      case Tile::TILE_KEY_RED:
+      case Tile::TILE_KEY_GREEN:
+      case Tile::TILE_KEY_BLUE:
+        switch(view)
+        {
+        case Tile::TILE_UNKNOWN:
+        case Tile::TILE_PLAYER:
+        case Tile::TILE_EMPTY:
+        case Tile::TILE_BOULDER:
+          return TileComparisonResult::StuffHasMoved();
+        default:
+          assert(view == map);
+          return TileComparisonResult::NoChange();
+        }
+
+      case Tile::TILE_BOULDER:
+        switch(view)
+        {
+        case Tile::TILE_UNKNOWN:
+        case Tile::TILE_PLAYER:
+        case Tile::TILE_BOULDER:
+          return TileComparisonResult::NoChange();
+        case Tile::TILE_EMPTY:
+          return TileComparisonResult::StuffHasMoved();
+        default:
+          assert(false);
+        }
+      case Tile::Tile_INT_MAX_SENTINEL_DO_NOT_USE_:
+      case Tile::Tile_INT_MIN_SENTINEL_DO_NOT_USE_:
+        assert(false);
+      }
+      std::terminate();
+    }
   } // namespace
+
+  Vector2d<int> WeightMap(const Vector2d<Tile>&        map,
+                          const NavigationParameters&  navigationParameters,
+                          const std::optional<Offset>& destination)
+  {
+    const int Inf = Infinity(map);
+    Vector2d  weights(map.Width(), map.Height(), Inf);
+
+    for(const auto offset: OffsetsInRectangle(map.Size()))
+    {
+      auto tile       = map[offset];
+      weights[offset] = (tile == Tile::TILE_WALL
+                         || (tile == Tile::TILE_BOULDER && navigationParameters.avoidBoulders
+                             && !navigationParameters.goodBoulders.contains(offset))
+                         || (IsDoor(tile) && navigationParameters.doorParameters.at(DoorKeyColor(tile)).avoidDoor) || IsKey(tile))
+                          ? Inf
+                          : 1;
+    }
+    if(destination)
+    {
+      assert(map.IsInRange(*destination));
+      weights[*destination] = 1;
+    }
+
+    return weights;
+  }
 
   Vector2d<Swoq::Interface::Tile> ViewFromState(int visibility, const Swoq::Interface::PlayerState& state)
   {
@@ -91,8 +194,8 @@ namespace Bot
     }
   }
 
-  Map::Map()
-    : Vector2d(0, 0)
+  Map::Map(Offset size)
+    : Vector2d(size.x, size.y)
   {
   }
 
@@ -103,19 +206,61 @@ namespace Bot
   {
   }
 
-  std::shared_ptr<Map> Map::Update(Offset pos, int visibility, const Vector2d<Tile>& view) const
+  MapUpdateResult Map::Update(Offset pos, int visibility, const Vector2d<Tile>& view) const
   {
-    Offset offset(visibility, visibility);
+    const Offset offset(visibility, visibility);
     assert(view.Size() == 2 * offset + One);
 
-    const Offset newSize = max(pos + offset + 2 * One, Size());
-    const auto   result  = std::make_shared<Map>(*this, newSize);
-    result->Update(pos, view, offset);
+    auto compareResult = Compare(pos, view, offset);
 
+    if(compareResult.needsUpdate)
+    {
+      const auto result = std::make_shared<Map>(*this, compareResult.newMapSize);
+      result->Update(pos, view, offset);
+      return {result, std::move(compareResult)};
+    }
+
+    return {nullptr, std::move(compareResult)};
+  }
+
+  std::shared_ptr<Map> Map::IncludeLocalView(Offset pos, int visibility, const Vector2d<Tile>& view) const
+  {
+    const Offset offset(visibility, visibility);
+    assert(view.Size() == 2 * offset + One);
+
+    const auto result = std::make_shared<Map>(*this);
+    result->IncludeLocalView(pos, view, offset);
     return result;
   }
 
   const DoorMap& Map::DoorData() const { return m_doorData; }
+
+  MapComparisonResult Map::Compare(Offset pos, const Vector2d<Tile>& view, Offset offset) const
+  {
+    const auto&         me = *this;
+    MapComparisonResult result(me);
+
+    for(const auto& p: OffsetsInRectangle(view.Size()))
+    {
+      const auto destination = pos + p - offset;
+
+      if(IsInRange(destination))
+      {
+        assert(AreTilesConsistent(view[p], me[destination]));
+        result.Update(CompareTiles(me[destination], view[p]), destination);
+      }
+      else if(view[p] != Tile::TILE_UNKNOWN)
+      {
+        result.newMapSize = max(result.newMapSize, destination + One);
+        result.Update(CompareTiles(Tile::TILE_UNKNOWN, view[p]), destination);
+      }
+    }
+
+    assert(result.needsUpdate || result.newBoulders.empty());
+    assert(result.needsUpdate || me.Size() == result.newMapSize);
+
+    return result;
+  }
 
   void Map::Update(Offset pos, const Vector2d<Tile>& view, Offset offset)
   {
@@ -128,7 +273,8 @@ namespace Bot
       {
         assert(AreTilesConsistent(view[p], me[destination]));
 
-        if(view[p] == Tile::TILE_UNKNOWN || IsDoor(me[destination]) || IsKey(me[destination]))
+        if(view[p] == Tile::TILE_UNKNOWN || IsDoor(me[destination]) || IsKey(me[destination])
+           || me[destination] == Tile::TILE_BOULDER)
         {
           continue;
         }
@@ -154,6 +300,89 @@ namespace Bot
         assert(view[p] == Tile::TILE_UNKNOWN);
       }
     }
+  }
+
+  void Map::IncludeLocalView(Offset pos, const Vector2d<Tile>& view, Offset offset)
+  {
+    auto& me         = *this;
+    bool  foundDelta = false;
+
+    for(const auto& p: OffsetsInRectangle(view.Size()))
+    {
+      const auto destination = pos + p - offset;
+      if(IsInRange(destination))
+      {
+        assert(AreTilesConsistent(view[p], me[destination]));
+
+        if(view[p] == Tile::TILE_UNKNOWN)
+        {
+          continue;
+        }
+        if(view[p] != Tile::TILE_PLAYER)
+        {
+          foundDelta |= (me[destination] != view[p]);
+          me[destination] = view[p];
+        }
+      }
+      else
+      {
+        assert(view[p] == Tile::TILE_UNKNOWN);
+      }
+    }
+
+    assert(foundDelta);
+  }
+
+  bool Map::IsGoodBoulder(Offset position) const
+  {
+    const auto IsEmpty = [&me = *this](Offset p) { return me.IsInRange(p) && IsPotentiallyWalkable(me[p]); };
+
+    bool previousEmpty     = IsEmpty(position + NorthWest);
+    bool currentEmpty      = IsEmpty(position + North);
+    int  partiallyIsolated = 0;
+    int  doublyIsolated    = 0;
+
+    for(auto d: {NorthEast, East, SouthEast, South, SouthWest, West, NorthWest, North})
+    {
+      const bool nextEmpty = IsEmpty(position + d);
+      if(currentEmpty && !previousEmpty && !nextEmpty)
+      {
+        ++doublyIsolated;
+      }
+      else if(currentEmpty && (!previousEmpty || !nextEmpty))
+      {
+        ++partiallyIsolated;
+      }
+
+      previousEmpty = currentEmpty;
+      currentEmpty  = nextEmpty;
+    }
+
+    return doublyIsolated == 0 && partiallyIsolated <= 2 || doublyIsolated == 1 && partiallyIsolated == 0;
+  }
+
+  bool Map::IsBadBoulder(Offset position) const
+  {
+    const auto& me = *this;
+    return std::ranges::any_of(AllDirections, [&](Offset direction) { return me[position + direction] == Tile::TILE_UNKNOWN; });
+  }
+
+  std::optional<Offset>
+    ReachablePositionNextTo(const Vector2d<Tile>& map, Offset from, Offset to, const NavigationParameters& navigationParameters)
+  {
+    const auto weights      = WeightMap(map, navigationParameters, to);
+    const auto reversedPath = ReversedPath(weights, from, [&](Offset p) { return p == to; });
+
+    if(reversedPath.empty())
+    {
+      return std::nullopt;
+    }
+    if(reversedPath.size() == 1)
+    {
+      assert(reversedPath[0] == to);
+      return from;
+    }
+    return reversedPath[1];
   }
 
 } // namespace Bot

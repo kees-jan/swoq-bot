@@ -18,6 +18,7 @@ namespace Bot
       Idle,
       Exploring,
       OpeningDoor,
+      MovingBoulder,
       MovingToExit
     };
 
@@ -29,13 +30,15 @@ namespace Bot
     void LevelReached(int reportingPlayer, int level) override;
     void MapUpdated(int id) override;
     void PrintMap() override;
-    void Finished(int m_id) override;
+    void Finished(int id) override;
 
     std::optional<DoorColor> DoorToOpen(const std::shared_ptr<const Map>& map, int id);
+    std::optional<Offset>    BoulderToMove(const std::shared_ptr<const Map>& map, int id);
 
     Swoq::GameConnection                   m_gameConnection;
     int                                    m_seed;
     int                                    m_level;
+    Offset                                 m_mapSize;
     ThreadSafe<std::shared_ptr<const Map>> m_map;
     Player                                 m_player;
     PlayerState                            m_playerState = PlayerState::Idle;
@@ -62,6 +65,9 @@ struct std::formatter<Bot::Game::PlayerState>
       break;
     case OpeningDoor:
       s = "OpeningDoor";
+      break;
+    case MovingBoulder:
+      s = "MovingBoulder";
       break;
     case MovingToExit:
       s = "MovingToExit";

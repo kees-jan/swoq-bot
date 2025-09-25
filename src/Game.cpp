@@ -6,11 +6,20 @@
 
 namespace Bot
 {
+  namespace
+  {
+    bool AvailableForTasks(Game::PlayerState playerState)
+    {
+      return playerState == Game::PlayerState::Idle || playerState == Game::PlayerState::Exploring;
+    }
+  } // namespace
+
   Game::Game(const Swoq::GameConnection& gameConnection, std::unique_ptr<Swoq::Game> game, std::optional<int> expectedLevel)
     : m_gameConnection(gameConnection)
     , m_seed(game->seed())
     , m_level(0)
-    , m_map(std::make_shared<Map>())
+    , m_mapSize(game->map_width(), game->map_height())
+    , m_map(std::make_shared<Map>(m_mapSize))
     , m_player(0, *this, std::move(game), m_map)
     , m_expectedLevel(expectedLevel)
   {
@@ -32,7 +41,7 @@ namespace Bot
     {
       std::print("Reached level {}!\n", level);
       m_level      = level;
-      m_map.Lock() = std::make_shared<Map>();
+      m_map.Lock() = std::make_shared<Map>(m_mapSize);
     }
     else
     {
@@ -42,31 +51,51 @@ namespace Bot
 
   void Game::MapUpdated(int id)
   {
-    auto map = m_map.Get();
-    if(map->Exit())
-    {
-      std::println("Going to the exit");
-      m_player.SetCommand(Visit(*map->Exit()));
-      m_playerState = PlayerState::MovingToExit;
-    }
-    else
-    {
-      std::optional<DoorColor> doorToOpen = DoorToOpen(map, id);
-      std::println("Exit not visible yet. Playerstate: {}, door to open: {}", m_playerState, doorToOpen);
+    std::println("Game: Map got updated by player {}!", id);
 
-      if(m_playerState != PlayerState::OpeningDoor && doorToOpen)
+    if(AvailableForTasks(m_playerState))
+    {
+      auto                     map           = m_map.Get();
+      std::optional<DoorColor> doorToOpen    = DoorToOpen(map, id);
+      std::optional<Offset>    boulderToMove = BoulderToMove(map, id);
+      std::println("Player {}: Playerstate: {}, exit: {}, door to open: {}, boulder to move: {}",
+                   id,
+                   m_playerState,
+                   map->Exit(),
+                   doorToOpen,
+                   boulderToMove);
+
+      if(map->Exit())
+      {
+        std::println("Going to the exit");
+        m_player.SetCommand(Visit(*map->Exit()));
+        m_playerState = PlayerState::MovingToExit;
+      }
+      else if(boulderToMove)
+      {
+        std::println("Player {}: Planning move boulder at {}", id, *boulderToMove);
+        Commands commands;
+        commands.emplace(FetchBoulder(*boulderToMove));
+        commands.emplace(DropBoulder);
+        m_player.SetCommands(commands);
+
+        m_playerState = PlayerState::OpeningDoor;
+      }
+      else if(doorToOpen)
       {
         std::println("Player {}: Planning to open {} door", id, *doorToOpen);
         auto     doorData = map->DoorData().at(*doorToOpen);
         Commands commands;
-        commands.emplace(FetchKey(*doorData.keyPosition, *doorToOpen));
+        commands.emplace(FetchKey(*doorData.keyPosition));
         commands.emplace(OpenDoor(*doorData.doorPosition, *doorToOpen));
         m_player.SetCommands(commands);
 
         m_playerState = PlayerState::OpeningDoor;
       }
-      else if(m_playerState == PlayerState::Idle || m_playerState == PlayerState::Exploring)
+
+      if(AvailableForTasks(m_playerState))
       {
+        std::println("Player {}: Resume exploration", id);
         m_player.SetCommand(Explore);
         m_playerState = PlayerState::Exploring;
       }
@@ -75,7 +104,7 @@ namespace Bot
 
   void Game::PrintMap()
   {
-    if constexpr(Debugging::PrintMaps)
+    if constexpr(Debugging::PrintGameMaps)
     {
       auto   characterMap = m_map.Get()->Vector2d::Map([](Tile t) { return CharFromTile(t); });
       auto   p0state      = m_player.State();
@@ -88,14 +117,17 @@ namespace Bot
           characterMap[step] = '*';
         }
       }
+      std::println("Game map:");
       Print(characterMap);
       std::println();
     }
   }
 
-  void Game::Finished(int m_id)
+  void Game::Finished(int id)
   {
-    if(m_id == 0)
+    std::println("Game: Player {} finished task {}", id, m_playerState);
+
+    if(id == 0)
     {
       if(m_playerState == PlayerState::Exploring)
       {
@@ -105,7 +137,7 @@ namespace Bot
       else
       {
         m_playerState = PlayerState::Idle;
-        MapUpdated(m_id);
+        MapUpdated(id);
       }
     }
   }
@@ -116,17 +148,22 @@ namespace Bot
     for(auto color: DoorColors)
     {
       auto doorData = map->DoorData().at(color);
-      std::println("DoorToOpen: Considering {}: door at {}, key at {}, avoidDoor: {}, avoidKey: {}",
-                   color,
-                   doorData.doorPosition,
-                   doorData.keyPosition,
-                   playerState.navigationParameters.doorParameters.at(color).avoidDoor,
-                   playerState.navigationParameters.doorParameters.at(color).avoidKey);
-
       if(doorData.doorPosition && doorData.keyPosition && playerState.navigationParameters.doorParameters.at(color).avoidDoor)
       {
         return color;
       }
+    }
+
+    return std::nullopt;
+  }
+
+  std::optional<Offset> Game::BoulderToMove(const std::shared_ptr<const Map>&, int)
+  {
+    // Todo: Maybe start with the closest one, using the map
+    auto playerState = m_player.State();
+    if(!playerState.navigationParameters.badBoulders.empty())
+    {
+      return *playerState.navigationParameters.badBoulders.begin();
     }
 
     return std::nullopt;
