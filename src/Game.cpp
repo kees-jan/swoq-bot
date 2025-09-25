@@ -2,6 +2,8 @@
 
 #include <print>
 
+#include "LoggingAndDebugging.h"
+
 namespace Bot
 {
   Game::Game(const Swoq::GameConnection& gameConnection, std::unique_ptr<Swoq::Game> game)
@@ -33,19 +35,22 @@ namespace Bot
 
   void Game::PrintMap()
   {
-    auto   characterMap = m_map.Get()->Vector2d::Map([](Tile t) { return CharFromTile(t); });
-    auto   p0state      = m_player.State();
-    Offset p0           = p0state.position;
-    characterMap[p0]    = 'a';
-    for(const auto& step: p0state.reversedPath)
+    if constexpr(Debugging::PrintMaps)
     {
-      if(characterMap[step] == '.')
+      auto   characterMap = m_map.Get()->Vector2d::Map([](Tile t) { return CharFromTile(t); });
+      auto   p0state      = m_player.State();
+      Offset p0           = p0state.position;
+      characterMap[p0]    = 'a';
+      for(const auto& step: p0state.reversedPath)
       {
-        characterMap[step] = '*';
+        if(characterMap[step] == '.')
+        {
+          characterMap[step] = '*';
+        }
       }
+      Print(characterMap);
+      std::println();
     }
-    Print(characterMap);
-    std::println();
   }
 
   void Game::Finished(int m_id)

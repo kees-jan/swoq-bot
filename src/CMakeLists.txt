@@ -15,6 +15,7 @@ add_library(bot_lib STATIC
         ThreadSafe.h
         TypeTraits.h
         Vector2d.h
+        LoggingAndDebugging.h
 )
 target_link_libraries(bot_lib PUBLIC
         protobuf::libprotobuf
