@@ -21,9 +21,10 @@ int main(int /*argc*/, char** /*argv*/)
   GameConnection connection(user_id, user_name, host, replays_folder);
 
   // Start a new Game using env variables
-  auto level        = get_env_int("SWOQ_LEVEL");
-  auto seed         = get_env_int("SWOQ_SEED");
-  auto start_result = connection.start(level, seed);
+  auto level         = get_env_int("SWOQ_LEVEL");
+  auto seed          = get_env_int("SWOQ_SEED");
+  auto expectedLevel = get_env_int("SWOQ_EXPECTED_LEVEL");
+  auto start_result  = connection.start(level, seed);
   if(!start_result)
   {
     std::println(std::cerr, "Failed to start game: {}", start_result.error());
@@ -31,7 +32,7 @@ int main(int /*argc*/, char** /*argv*/)
   }
   auto& game = (*start_result);
 
-  Bot::Game  botGame(connection, std::move(game));
+  Bot::Game  botGame(connection, std::move(game), expectedLevel);
   const auto result = botGame.Run();
 
   if(!result)

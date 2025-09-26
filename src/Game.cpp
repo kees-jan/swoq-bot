@@ -6,16 +6,25 @@
 
 namespace Bot
 {
-  Game::Game(const Swoq::GameConnection& gameConnection, std::unique_ptr<Swoq::Game> game)
+  Game::Game(const Swoq::GameConnection& gameConnection, std::unique_ptr<Swoq::Game> game, std::optional<int> expectedLevel)
     : m_gameConnection(gameConnection)
     , m_seed(game->seed())
     , m_level(0)
     , m_map(std::make_shared<Map>())
     , m_player(0, *this, std::move(game), m_map)
+    , m_expectedLevel(expectedLevel)
   {
   }
 
-  std::expected<void, std::string> Game::Run() { return m_player.Run(); }
+  std::expected<void, std::string> Game::Run()
+  {
+    auto result = m_player.Run();
+    if(result && m_expectedLevel && *m_expectedLevel != m_level)
+    {
+      return std::unexpected(std::format("Expected level {}, but reached {}", *m_expectedLevel, m_level));
+    }
+    return result;
+  }
 
   void Game::LevelReached(int reportingPlayer, int level)
   {

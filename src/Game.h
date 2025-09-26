@@ -21,7 +21,7 @@ namespace Bot
       MovingToExit
     };
 
-    Game(const Swoq::GameConnection& gameConnection, std::unique_ptr<Swoq::Game> game);
+    Game(const Swoq::GameConnection& gameConnection, std::unique_ptr<Swoq::Game> game, std::optional<int> expectedLevel);
 
     std::expected<void, std::string> Run();
 
@@ -39,6 +39,7 @@ namespace Bot
     ThreadSafe<std::shared_ptr<const Map>> m_map;
     Player                                 m_player;
     PlayerState                            m_playerState = PlayerState::Idle;
+    std::optional<int>                     m_expectedLevel;
   };
 
 } // namespace Bot
