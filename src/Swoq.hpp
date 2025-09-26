@@ -33,6 +33,10 @@ namespace Swoq
                                                             std::optional<int> seed  = std::nullopt);
 
   private:
+    std::expected<Interface::StartResponse, std::string> start_internal(std::optional<int> level = std::nullopt,
+                                                                        std::optional<int> seed  = std::nullopt);
+
+
     std::string                m_user_id;
     std::string                m_user_name;
     std::optional<std::string> m_replays_folder;

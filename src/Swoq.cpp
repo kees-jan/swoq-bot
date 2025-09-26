@@ -1,5 +1,7 @@
 #include "Swoq.hpp"
 
+#include <print>
+
 namespace Swoq
 {
 
@@ -27,6 +29,52 @@ namespace Swoq
       start_request.set_level(*level);
     if(seed)
       start_request.set_seed(*seed);
+
+    auto start_response = start_internal(level, seed);
+    if(!start_response)
+    {
+      return std::unexpected(start_response.error());
+    }
+
+    while(start_response->result() == StartResult::START_RESULT_QUEST_QUEUED)
+    {
+      std::println("Quest queued, retrying ...");
+      start_response = start_internal(level, seed);
+      if(!start_response)
+      {
+        return std::unexpected(start_response.error());
+      }
+    }
+
+    if(start_response->result() != StartResult::START_RESULT_OK)
+    {
+      return std::unexpected(std::format("Start failed (result {})", start_response->result()));
+    }
+
+    std::unique_ptr<ReplayFile> replay_file;
+    if(m_replays_folder)
+    {
+      auto replay_result = ReplayFile::create(*m_replays_folder, start_request, *start_response);
+      if(!replay_result)
+      {
+        return std::unexpected(std::format("Failed to create ReplayFile: {}", replay_result.error()));
+      }
+      replay_file = std::move(replay_result.value());
+    }
+
+    return std::make_unique<Game>(m_stub, *start_response, std::move(replay_file));
+  }
+
+  std::expected<StartResponse, std::string> GameConnection::start_internal(std::optional<int> level, std::optional<int> seed)
+  {
+    grpc::ClientContext context;
+    StartRequest        start_request;
+    start_request.set_userid(m_user_id);
+    start_request.set_username(m_user_name);
+    if(level)
+      start_request.set_level(*level);
+    if(seed)
+      start_request.set_seed(*seed);
     StartResponse start_response;
 
     auto status = m_stub->Start(&context, start_request, &start_response);
@@ -35,33 +83,7 @@ namespace Swoq
       return std::unexpected(std::format("gRPC error {} - {}", std::to_string(status.error_code()), status.error_message()));
     }
 
-    while(start_response.result() == StartResult::START_RESULT_QUEST_QUEUED)
-    {
-      std::println(std::cerr, "Quest queued, retrying ...");
-      status = m_stub->Start(&context, start_request, &start_response);
-      if(!status.ok())
-      {
-        return std::unexpected(std::format("gRPC error {} - {}", std::to_string(status.error_code()), status.error_message()));
-      }
-    }
-
-    if(start_response.result() != StartResult::START_RESULT_OK)
-    {
-      return std::unexpected(std::format("Start failed (result {})", start_response.result()));
-    }
-
-    std::unique_ptr<ReplayFile> replay_file;
-    if(m_replays_folder)
-    {
-      auto replay_result = ReplayFile::create(*m_replays_folder, start_request, start_response);
-      if(!replay_result)
-      {
-        return std::unexpected(std::format("Failed to create ReplayFile: {}", replay_result.error()));
-      }
-      replay_file = std::move(replay_result.value());
-    }
-
-    return std::make_unique<Game>(m_stub, start_response, std::move(replay_file));
+    return start_response;
   }
 
   std::expected<std::unique_ptr<ReplayFile>, std::string>
