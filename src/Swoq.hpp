@@ -266,6 +266,15 @@ struct std::formatter<Swoq::Interface::Tile>
     case TILE_KEY_BLUE:
       s = "TILE_KEY_BLUE";
       break;
+    case TILE_PRESSURE_PLATE_RED:
+      s = "TILE_PRESSURE_PLATE_RED";
+      break;
+    case TILE_PRESSURE_PLATE_GREEN:
+      s = "TILE_PRESSURE_PLATE_GREEN";
+      break;
+    case TILE_PRESSURE_PLATE_BLUE:
+      s = "TILE_PRESSURE_PLATE_BLUE";
+      break;
     case TILE_BOULDER:
       s = "TILE_BOULDER";
       break;

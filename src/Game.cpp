@@ -79,7 +79,7 @@ namespace Bot
         commands.emplace(DropBoulder);
         m_player.SetCommands(commands);
 
-        m_playerState = PlayerState::OpeningDoor;
+        m_playerState = PlayerState::MovingBoulder;
       }
       else if(doorToOpen)
       {

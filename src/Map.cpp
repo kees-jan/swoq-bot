@@ -5,6 +5,7 @@
 #include <print>
 
 #include "Dijkstra.h"
+#include "LoggingAndDebugging.h"
 #include "Swoq.hpp"
 
 namespace Bot
@@ -43,36 +44,47 @@ namespace Bot
       assert(map != Tile::Tile_INT_MAX_SENTINEL_DO_NOT_USE_ && map != Tile::Tile_INT_MIN_SENTINEL_DO_NOT_USE_);
       assert(view != Tile::Tile_INT_MAX_SENTINEL_DO_NOT_USE_ && view != Tile::Tile_INT_MIN_SENTINEL_DO_NOT_USE_);
 
+      TileComparisonResult result;
+
       switch(map)
       {
       case Tile::TILE_UNKNOWN:
         switch(view)
         {
         case Tile::TILE_UNKNOWN:
-          return TileComparisonResult::NoChange();
+          result = TileComparisonResult::NoChange();
+          break;
         case Tile::TILE_BOULDER:
-          return TileComparisonResult::NewBoulder();
+          result = TileComparisonResult::NewBoulder();
+          break;
         default:
-          return TileComparisonResult::NeedsUpdate();
+          result = TileComparisonResult::NeedsUpdate();
+          break;
         }
+        break;
       case Tile::TILE_EMPTY:
         switch(view)
         {
         case Tile::TILE_UNKNOWN:
         case Tile::TILE_EMPTY:
         case Tile::TILE_PLAYER:
-          return TileComparisonResult::NoChange();
+          result = TileComparisonResult::NoChange();
+          break;
         case Tile::TILE_BOULDER:
-          return TileComparisonResult::StuffHasMoved();
+          result = TileComparisonResult::StuffHasMoved();
+          break;
         default:
           assert(false);
         }
+        break;
       case Tile::TILE_WALL:
         assert(view == Tile::TILE_WALL || view == Tile::TILE_UNKNOWN);
-        return TileComparisonResult::NoChange();
+        result = TileComparisonResult::NoChange();
+        break;
       case Tile::TILE_EXIT:
         assert(view == Tile::TILE_EXIT || view == Tile::TILE_UNKNOWN || view == Tile::TILE_PLAYER);
-        return TileComparisonResult::NoChange();
+        result = TileComparisonResult::NoChange();
+        break;
       case Tile::TILE_PLAYER:
         assert(false);
 
@@ -84,33 +96,67 @@ namespace Bot
       case Tile::TILE_KEY_BLUE:
         switch(view)
         {
-        case Tile::TILE_UNKNOWN:
-        case Tile::TILE_PLAYER:
         case Tile::TILE_EMPTY:
         case Tile::TILE_BOULDER:
-          return TileComparisonResult::StuffHasMoved();
+          result = TileComparisonResult::StuffHasMoved();
+          break;
+        case Tile::TILE_PLAYER:
+        case Tile::TILE_UNKNOWN:
+          result = TileComparisonResult::NoChange();
+          break;
         default:
           assert(view == map);
-          return TileComparisonResult::NoChange();
+          result = TileComparisonResult::NoChange();
+          break;
         }
-
+        break;
+      case Tile::TILE_PRESSURE_PLATE_RED:
+      case Tile::TILE_PRESSURE_PLATE_GREEN:
+      case Tile::TILE_PRESSURE_PLATE_BLUE:
+        switch(view)
+        {
+        case Tile::TILE_BOULDER:
+          result = TileComparisonResult::StuffHasMoved();
+          break;
+        case Tile::TILE_PLAYER:
+        case Tile::TILE_UNKNOWN:
+          result = TileComparisonResult::NoChange();
+          break;
+        default:
+          assert(view == map);
+          result = TileComparisonResult::NoChange();
+          break;
+        }
+        break;
       case Tile::TILE_BOULDER:
         switch(view)
         {
         case Tile::TILE_UNKNOWN:
         case Tile::TILE_PLAYER:
         case Tile::TILE_BOULDER:
-          return TileComparisonResult::NoChange();
+          result = TileComparisonResult::NoChange();
+          break;
         case Tile::TILE_EMPTY:
-          return TileComparisonResult::StuffHasMoved();
+          result = TileComparisonResult::StuffHasMoved();
+          break;
         default:
           assert(false);
         }
+        break;
       case Tile::Tile_INT_MAX_SENTINEL_DO_NOT_USE_:
       case Tile::Tile_INT_MIN_SENTINEL_DO_NOT_USE_:
         assert(false);
       }
-      std::terminate();
+
+      if constexpr(Debugging::PrintIncorporatingMovedStuff)
+      {
+        if(result.stuffHasMoved)
+        {
+          std::println("CompareTiles: Map has {}, but view has {}", map, view);
+        }
+      }
+
+      return result;
     }
   } // namespace
 
@@ -290,7 +336,7 @@ namespace Bot
         {
           m_doorData[DoorKeyColor(view[p])].keyPosition = destination;
         }
-        if(view[p] != Tile::TILE_PLAYER)
+        if(view[p] != Tile::TILE_PLAYER && (me[destination] == Tile::TILE_UNKNOWN || view[p] != Tile::TILE_BOULDER))
         {
           me[destination] = view[p];
         }
@@ -306,6 +352,15 @@ namespace Bot
   {
     auto& me         = *this;
     bool  foundDelta = false;
+
+    if constexpr(Debugging::PrintIncorporatingMovedStuff)
+    {
+      std::println("Incorporating moved stuff at position {}:", pos);
+      std::println("View:");
+      Print(view);
+      std::println("Map:");
+      Print(me);
+    }
 
     for(const auto& p: OffsetsInRectangle(view.Size()))
     {
@@ -358,7 +413,24 @@ namespace Bot
       currentEmpty  = nextEmpty;
     }
 
-    return doublyIsolated == 0 && partiallyIsolated <= 2 || doublyIsolated == 1 && partiallyIsolated == 0;
+    bool result = (doublyIsolated == 0 && partiallyIsolated <= 2) || (doublyIsolated == 1 && partiallyIsolated == 0);
+
+    if constexpr(Debugging::PrintFindingBoulderLocation)
+    {
+      const auto MyCharFromTile = [&me = *this](Offset p) { return me.IsInRange(p) ? CharFromTile(me[p]) : '@'; };
+
+      std::println("IsGoodBoulder at position {}: doublyIsolated: {}, partiallyIsolated: {}, result: {}",
+                   position,
+                   doublyIsolated,
+                   partiallyIsolated,
+                   result);
+      std::println(
+        "{}{}{}", MyCharFromTile(position + NorthWest), MyCharFromTile(position + North), MyCharFromTile(position + NorthEast));
+      std::println("{}{}{}", MyCharFromTile(position + West), MyCharFromTile(position), MyCharFromTile(position + East));
+      std::println(
+        "{}{}{}", MyCharFromTile(position + SouthWest), MyCharFromTile(position + South), MyCharFromTile(position + SouthEast));
+    }
+    return result;
   }
 
   bool Map::IsBadBoulder(Offset position) const

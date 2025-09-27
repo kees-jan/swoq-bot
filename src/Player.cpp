@@ -420,10 +420,11 @@ namespace Bot
 
   std::expected<bool, std::string> Player::DropBoulder()
   {
-    auto map = GetMap();
+    auto map        = GetMap();
+    auto myLocation = m_state.Get().position;
     return ComputePathAndThen(
       map,
-      [&](Offset p) { return (*map)[p] == Tile::TILE_EMPTY && map->IsGoodBoulder(p); },
+      [&](Offset p) { return (*map)[p] == Tile::TILE_EMPTY && map->IsGoodBoulder(p) && p != myLocation; },
       [&](auto& state) -> std::expected<bool, std::string>
       {
         if(m_game->state().playerstate().inventory() == Swoq::Interface::INVENTORY_NONE)

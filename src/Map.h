@@ -38,6 +38,12 @@ namespace Bot
       return 'g';
     case Tile::TILE_KEY_BLUE:
       return 'b';
+    case Tile::TILE_PRESSURE_PLATE_RED:
+      return static_cast<char>(174);
+    case Tile::TILE_PRESSURE_PLATE_GREEN:
+      return static_cast<char>(247);
+    case Tile::TILE_PRESSURE_PLATE_BLUE:
+      return static_cast<char>(223);
     case Tile::TILE_BOULDER:
       return 'o';
     case Tile::Tile_INT_MAX_SENTINEL_DO_NOT_USE_:
@@ -61,6 +67,9 @@ namespace Bot
     case Tile::TILE_KEY_RED:
     case Tile::TILE_KEY_GREEN:
     case Tile::TILE_KEY_BLUE:
+    case Tile::TILE_PRESSURE_PLATE_RED:
+    case Tile::TILE_PRESSURE_PLATE_GREEN:
+    case Tile::TILE_PRESSURE_PLATE_BLUE:
     case Tile::TILE_BOULDER:
       return true;
 
