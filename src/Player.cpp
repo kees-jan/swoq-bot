@@ -177,7 +177,7 @@ namespace Bot
   {
     if constexpr(Debugging::PrintPlayerMaps)
     {
-      auto   characterMap = m_map.Get()->Vector2d::Map([](Tile t) { return CharFromTile(t); });
+      auto   characterMap = GetMap()->Vector2d::Map([](Tile t) { return CharFromTile(t); });
       auto   p0state      = m_state.Get();
       Offset p0           = p0state.position;
       characterMap[p0]    = 'a';

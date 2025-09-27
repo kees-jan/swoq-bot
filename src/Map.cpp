@@ -172,7 +172,7 @@ namespace Bot
       auto tile       = map[offset];
       weights[offset] = (tile == Tile::TILE_WALL
                          || (tile == Tile::TILE_BOULDER && navigationParameters.avoidBoulders
-                             && !navigationParameters.goodBoulders.contains(offset))
+                             && navigationParameters.goodBoulders.contains(offset))
                          || (IsDoor(tile) && navigationParameters.doorParameters.at(DoorKeyColor(tile)).avoidDoor) || IsKey(tile))
                           ? Inf
                           : 1;
