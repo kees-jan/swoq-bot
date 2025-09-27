@@ -56,6 +56,13 @@ namespace Bot
       return std::unexpected("Invalid direction");
     }
 
+    constexpr bool IsUse(Swoq::Interface::DirectedAction action)
+    {
+      using enum Swoq::Interface::DirectedAction;
+      return action == DIRECTED_ACTION_USE_NORTH || action == DIRECTED_ACTION_USE_EAST || action == DIRECTED_ACTION_USE_SOUTH
+             || action == DIRECTED_ACTION_USE_WEST;
+    }
+
     constexpr std::chrono::seconds delay(8);
 
     std::expected<void, std::string> InterpretGameState(GameStatus status)
@@ -107,12 +114,37 @@ namespace Bot
     playerState->position    = pos;
     playerState->currentView = updateResult.stuffHasMoved ? std::optional(view) : std::nullopt;
 
+#ifndef NDEBUG
+    bool bad = false;
+    for(auto p: OffsetsInRectangle(view.Size()))
+    {
+      const auto destination = pos + p - visibility * One;
+      const bool ok = view[p] != Tile::TILE_BOULDER || playerState->navigationParameters.currentBoulders.contains(destination)
+                      || updateResult.newBoulders.contains(destination);
+
+      if(!ok)
+      {
+        std::println("Boulder at {} (destination {}) not in known boulders", p - visibility * One, destination);
+        bad = true;
+      }
+    }
+    if(bad)
+    {
+      std::println("Player position: {}", static_cast<Offset>(pos));
+      Print(view);
+      std::println("currentBoulders: {}", playerState->navigationParameters.currentBoulders);
+      std::println("newBoulders:     {}", updateResult.newBoulders);
+    }
+#endif
+
     if(const auto newMap = updateResult.map; newMap)
     {
       bool const updated =
         (newMap->Exit() && !map->Exit()) || newMap->DoorData() != map->DoorData() || !updateResult.newBoulders.empty();
 
-      playerState->navigationParameters.badBoulders.merge(updateResult.newBoulders);
+      playerState->navigationParameters.uncheckedBoulders.insert(updateResult.newBoulders.begin(),
+                                                                 updateResult.newBoulders.end());
+      playerState->navigationParameters.currentBoulders.merge(updateResult.newBoulders);
 
       map = newMap;
 
@@ -121,13 +153,13 @@ namespace Bot
 
     return false;
   }
-  std::shared_ptr<const Map> Player::GetMap()
+  std::shared_ptr<const Map> Player::GetMap(bool silently)
   {
     auto state = m_state.Get();
     auto map   = m_map.Get();
     if(state.currentView)
     {
-      return map->IncludeLocalView(state.position, m_game->visibility_range(), *state.currentView);
+      return map->IncludeLocalView(state.position, m_game->visibility_range(), *state.currentView, silently);
     }
     else
     {
@@ -177,7 +209,7 @@ namespace Bot
   {
     if constexpr(Debugging::PrintPlayerMaps)
     {
-      auto   characterMap = m_map.Get()->Vector2d::Map([](Tile t) { return CharFromTile(t); });
+      auto   characterMap = GetMap(true)->Vector2d::Map([](Tile t) { return CharFromTile(t); });
       auto   p0state      = m_state.Get();
       Offset p0           = p0state.position;
       characterMap[p0]    = 'a';
@@ -411,8 +443,9 @@ namespace Bot
         if(result && *result)
         {
           // Boulder was picked up
-          state->navigationParameters.badBoulders.erase(destination);
-          state->navigationParameters.goodBoulders.insert(destination);
+          state->navigationParameters.uncheckedBoulders.erase(destination);
+          auto eraseCount = state->navigationParameters.currentBoulders.erase(destination);
+          assert(eraseCount == 1);
         }
         return result;
       });
@@ -431,7 +464,18 @@ namespace Bot
         {
           return true;
         }
-        return MoveAlongPathThenUse(state, map, Tile::TILE_BOULDER, "Drop boulder");
+        auto moveResult = MoveAlongPathThenUse(state, map, Tile::TILE_BOULDER, "Drop boulder");
+        if(IsUse(state->next))
+        {
+          auto destination = state->reversedPath.front();
+          std::println("DropBoulder: About to drop boulder at {}", destination);
+          state->navigationParameters.currentBoulders.insert(destination);
+        }
+        else
+        {
+          std::println("DropBoulder: Still carrying boulder");
+        }
+        return moveResult;
       });
   }
 

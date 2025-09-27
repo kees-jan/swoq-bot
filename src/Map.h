@@ -120,9 +120,9 @@ namespace Bot
     DoorParameterMap             doorParameters{DoorColors
                                     | std::views::transform([](auto color) { return std::pair(color, DoorParameters{}); })
                                     | std::ranges::to<DoorParameterMap>()};
-    bool                         avoidBoulders = true;
-    std::set<Offset, OffsetLess> badBoulders{};
-    std::set<Offset, OffsetLess> goodBoulders{};
+    bool                         avoidBoulders = false;
+    std::set<Offset, OffsetLess> uncheckedBoulders{};
+    std::set<Offset, OffsetLess> currentBoulders{};
   };
 
   Vector2d<int> WeightMap(const Vector2d<Tile>&        map,
@@ -191,8 +191,9 @@ namespace Bot
   public:
     explicit Map(Offset size = {0, 0});
     Map(const Map& other, Offset newSize);
-    [[nodiscard]] MapUpdateResult      Update(Offset pos, int visibility, const Vector2d<Tile>& view) const;
-    [[nodiscard]] std::shared_ptr<Map> IncludeLocalView(Offset pos, int visibility, const Vector2d<Tile>& view) const;
+    [[nodiscard]] MapUpdateResult Update(Offset pos, int visibility, const Vector2d<Tile>& view) const;
+    [[nodiscard]] std::shared_ptr<Map>
+      IncludeLocalView(Offset pos, int visibility, const Vector2d<Tile>& view, bool silently = false) const;
 
     [[nodiscard]] std::optional<Offset> Exit() const { return m_exit; }
     [[nodiscard]] const DoorMap&        DoorData() const;
@@ -202,7 +203,7 @@ namespace Bot
   private:
     [[nodiscard]] MapComparisonResult Compare(Offset pos, const Vector2d<Tile>& view, Offset offset) const;
     void                              Update(Offset pos, const Vector2d<Tile>& view, Offset offset);
-    void                              IncludeLocalView(Offset pos, const Vector2d<Tile>& view, Offset offset);
+    void                              IncludeLocalView(Offset pos, const Vector2d<Tile>& view, Offset offset, bool silently);
     void                              HandleUnknownBoulder(Offset playerPosition, Offset boulderPosition);
 
     std::optional<Offset> m_exit;
@@ -312,5 +313,33 @@ struct std::formatter<std::optional<T>>
       return std::format_to(ctx.out(), "{}", *item);
 
     return std::format_to(ctx.out(), "(none)");
+  }
+};
+
+template <typename Key, typename Compare, typename Allocator>
+struct std::formatter<std::set<Key, Compare, Allocator>>
+{
+  constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin(); }
+  auto           format(const std::set<Key, Compare, Allocator>& item, std::format_context& ctx) const
+  {
+    auto cur = item.begin();
+    auto end = item.end();
+    if(item.empty())
+    {
+      return std::format_to(ctx.out(), "(empty)");
+    }
+
+    auto it = std::format_to(ctx.out(), "{{");
+
+    if(cur != end)
+    {
+      it = std::format_to(it, "{}", *cur++);
+    }
+    while(cur != end)
+    {
+      it = std::format_to(it, ", {}", *cur++);
+    }
+
+    return std::format_to(it, "}}");
   }
 };

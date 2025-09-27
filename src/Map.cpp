@@ -170,9 +170,8 @@ namespace Bot
     for(const auto offset: OffsetsInRectangle(map.Size()))
     {
       auto tile       = map[offset];
-      weights[offset] = (tile == Tile::TILE_WALL
-                         || (tile == Tile::TILE_BOULDER && navigationParameters.avoidBoulders
-                             && !navigationParameters.goodBoulders.contains(offset))
+      weights[offset] = (tile == Tile::TILE_WALL || (tile == Tile::TILE_BOULDER && navigationParameters.avoidBoulders)
+                         || navigationParameters.currentBoulders.contains(offset)
                          || (IsDoor(tile) && navigationParameters.doorParameters.at(DoorKeyColor(tile)).avoidDoor) || IsKey(tile))
                           ? Inf
                           : 1;
@@ -269,13 +268,13 @@ namespace Bot
     return {nullptr, std::move(compareResult)};
   }
 
-  std::shared_ptr<Map> Map::IncludeLocalView(Offset pos, int visibility, const Vector2d<Tile>& view) const
+  std::shared_ptr<Map> Map::IncludeLocalView(Offset pos, int visibility, const Vector2d<Tile>& view, bool silently) const
   {
     const Offset offset(visibility, visibility);
     assert(view.Size() == 2 * offset + One);
 
     const auto result = std::make_shared<Map>(*this);
-    result->IncludeLocalView(pos, view, offset);
+    result->IncludeLocalView(pos, view, offset, silently);
     return result;
   }
 
@@ -348,18 +347,21 @@ namespace Bot
     }
   }
 
-  void Map::IncludeLocalView(Offset pos, const Vector2d<Tile>& view, Offset offset)
+  void Map::IncludeLocalView(Offset pos, const Vector2d<Tile>& view, Offset offset, bool silently)
   {
     auto& me         = *this;
     bool  foundDelta = false;
 
     if constexpr(Debugging::PrintIncorporatingMovedStuff)
     {
-      std::println("Incorporating moved stuff at position {}:", pos);
-      std::println("View:");
-      Print(view);
-      std::println("Map:");
-      Print(me);
+      if(!silently)
+      {
+        std::println("Incorporating moved stuff at position {}:", pos);
+        std::println("View:");
+        Print(view);
+        std::println("Map:");
+        Print(me);
+      }
     }
 
     for(const auto& p: OffsetsInRectangle(view.Size()))

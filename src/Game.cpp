@@ -161,9 +161,9 @@ namespace Bot
   {
     // Todo: Maybe start with the closest one, using the map
     auto playerState = m_player.State();
-    if(!playerState.navigationParameters.badBoulders.empty())
+    if(!playerState.navigationParameters.uncheckedBoulders.empty())
     {
-      return *playerState.navigationParameters.badBoulders.begin();
+      return *playerState.navigationParameters.uncheckedBoulders.begin();
     }
 
     return std::nullopt;

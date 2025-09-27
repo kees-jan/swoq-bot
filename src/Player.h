@@ -41,7 +41,7 @@ namespace Bot
     void                             InitializeLevel();
     void                             InitializeMap();
     bool                             UpdateMap();
-    std::shared_ptr<const Map>       GetMap();
+    std::shared_ptr<const Map>       GetMap(bool silently = false);
     void                             InitializeNavigation();
     std::expected<bool, std::string> VisitTiles(const std::set<Tile>& tiles);
     std::expected<bool, std::string> Visit(Offset destination);
