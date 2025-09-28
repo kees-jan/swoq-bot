@@ -81,7 +81,20 @@ namespace Bot
     Offset position;
   };
 
-  using Command  = std::variant<Explore_t, VisitTiles, Terminate_t, Visit, FetchKey, OpenDoor, FetchBoulder, DropBoulder_t>;
+  constexpr struct ReconsiderUncheckedBoulders_t
+  {
+  } ReconsiderUncheckedBoulders;
+
+
+  using Command  = std::variant<Explore_t,
+                                VisitTiles,
+                                Terminate_t,
+                                Visit,
+                                FetchKey,
+                                OpenDoor,
+                                FetchBoulder,
+                                DropBoulder_t,
+                                ReconsiderUncheckedBoulders_t>;
   using Commands = std::queue<Command>;
 
 } // namespace Bot

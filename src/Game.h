@@ -18,8 +18,10 @@ namespace Bot
       Idle,
       Exploring,
       OpeningDoor,
+      ReconsideringUncheckedBoulders,
       MovingBoulder,
-      MovingToExit
+      MovingToExit,
+      Terminating
     };
 
     Game(const Swoq::GameConnection& gameConnection, std::unique_ptr<Swoq::Game> game, std::optional<int> expectedLevel);
@@ -33,7 +35,8 @@ namespace Bot
     void Finished(int id) override;
 
     std::optional<DoorColor> DoorToOpen(const std::shared_ptr<const Map>& map, int id);
-    std::optional<Offset>    BoulderToMove(const std::shared_ptr<const Map>& map, int id);
+    OffsetSet                BouldersToMove(const std::shared_ptr<const Map>& map, int id);
+    Offset                   ClosestUncheckedBoulder(const Map& map, int id);
 
     Swoq::GameConnection                   m_gameConnection;
     int                                    m_seed;
@@ -54,7 +57,7 @@ struct std::formatter<Bot::Game::PlayerState>
   auto           format(const Bot::Game::PlayerState& state, std::format_context& ctx) const
   {
     using enum Bot::Game::PlayerState;
-    std::string s;
+    std::string s = "<UNKNOWN>";
     switch(state)
     {
     case Idle:
@@ -66,16 +69,19 @@ struct std::formatter<Bot::Game::PlayerState>
     case OpeningDoor:
       s = "OpeningDoor";
       break;
+    case ReconsideringUncheckedBoulders:
+      s = "ReconsiderUncheckedBoulders";
+      break;
     case MovingBoulder:
       s = "MovingBoulder";
       break;
     case MovingToExit:
       s = "MovingToExit";
       break;
+    case Terminating:
+      s = "Terminating";
+      break;
     }
-
-    if(s.empty())
-      s = "<UNKNOWN>";
 
     return std::format_to(ctx.out(), "{}", s);
   }

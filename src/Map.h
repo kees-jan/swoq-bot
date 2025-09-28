@@ -119,8 +119,8 @@ namespace Bot
                                     | std::views::transform([](auto color) { return std::pair(color, DoorParameters{}); })
                                     | std::ranges::to<DoorParameterMap>()};
     bool                         avoidBoulders = false;
-    std::set<Offset, OffsetLess> uncheckedBoulders{};
-    std::set<Offset, OffsetLess> currentBoulders{};
+    OffsetSet uncheckedBoulders{};
+    OffsetSet currentBoulders{};
   };
 
   Vector2d<int> WeightMap(const Vector2d<Tile>&        map,
@@ -143,7 +143,7 @@ namespace Bot
   {
     Offset                       newMapSize;
     bool                         needsUpdate = false;
-    std::set<Offset, OffsetLess> newBoulders;
+    OffsetSet newBoulders;
     bool                         stuffHasMoved = false;
 
     constexpr explicit MapComparisonResult(Offset newMapSize_)
@@ -172,7 +172,7 @@ namespace Bot
   struct MapUpdateResult
   {
     std::shared_ptr<Map>         map;
-    std::set<Offset, OffsetLess> newBoulders;
+    OffsetSet newBoulders;
     bool                         stuffHasMoved = false;
 
     MapUpdateResult(std::shared_ptr<Map>  map_,

@@ -2,18 +2,11 @@
 
 #include <print>
 
+#include "Dijkstra.h"
 #include "LoggingAndDebugging.h"
 
 namespace Bot
 {
-  namespace
-  {
-    bool AvailableForTasks(Game::PlayerState playerState)
-    {
-      return playerState == Game::PlayerState::Idle || playerState == Game::PlayerState::Exploring;
-    }
-  } // namespace
-
   Game::Game(const Swoq::GameConnection& gameConnection, std::unique_ptr<Swoq::Game> game, std::optional<int> expectedLevel)
     : m_gameConnection(gameConnection)
     , m_seed(game->seed())
@@ -49,58 +42,7 @@ namespace Bot
     }
   }
 
-  void Game::MapUpdated(int id)
-  {
-    std::println("Game: Map got updated by player {}!", id);
-
-    if(AvailableForTasks(m_playerState))
-    {
-      auto                     map           = m_map.Get();
-      std::optional<DoorColor> doorToOpen    = DoorToOpen(map, id);
-      std::optional<Offset>    boulderToMove = BoulderToMove(map, id);
-      std::println("Player {}: Playerstate: {}, exit: {}, door to open: {}, boulder to move: {}",
-                   id,
-                   m_playerState,
-                   map->Exit(),
-                   doorToOpen,
-                   boulderToMove);
-
-      if(map->Exit())
-      {
-        std::println("Going to the exit");
-        m_player.SetCommand(Visit(*map->Exit()));
-        m_playerState = PlayerState::MovingToExit;
-      }
-      else if(boulderToMove)
-      {
-        std::println("Player {}: Planning move boulder at {}", id, *boulderToMove);
-        Commands commands;
-        commands.emplace(FetchBoulder(*boulderToMove));
-        commands.emplace(DropBoulder);
-        m_player.SetCommands(commands);
-
-        m_playerState = PlayerState::MovingBoulder;
-      }
-      else if(doorToOpen)
-      {
-        std::println("Player {}: Planning to open {} door", id, *doorToOpen);
-        auto     doorData = map->DoorData().at(*doorToOpen);
-        Commands commands;
-        commands.emplace(FetchKey(*doorData.keyPosition));
-        commands.emplace(OpenDoor(*doorData.doorPosition, *doorToOpen));
-        m_player.SetCommands(commands);
-
-        m_playerState = PlayerState::OpeningDoor;
-      }
-
-      if(AvailableForTasks(m_playerState))
-      {
-        std::println("Player {}: Resume exploration", id);
-        m_player.SetCommand(Explore);
-        m_playerState = PlayerState::Exploring;
-      }
-    }
-  }
+  void Game::MapUpdated(int) {}
 
   void Game::PrintMap()
   {
@@ -129,15 +71,83 @@ namespace Bot
 
     if(id == 0)
     {
-      if(m_playerState == PlayerState::Exploring)
-      {
-        std::println("Terminating player 0");
-        m_player.SetCommand(Terminate);
-      }
-      else
+      auto                     map            = m_map.Get();
+      std::optional<DoorColor> doorToOpen     = DoorToOpen(map, id);
+      OffsetSet                bouldersToMove = BouldersToMove(map, id);
+      std::println("Player {}: Playerstate: {}, exit: {}, door to open: {}, boulders to check: {}",
+                   id,
+                   m_playerState,
+                   map->Exit(),
+                   doorToOpen,
+                   bouldersToMove);
+
+
+      if(m_playerState == PlayerState::MovingBoulder)
       {
         m_playerState = PlayerState::Idle;
-        MapUpdated(id);
+      }
+      else if(m_playerState == PlayerState::ReconsideringUncheckedBoulders)
+      {
+        if(!bouldersToMove.empty())
+        {
+          auto destination = ClosestUncheckedBoulder(*map, id);
+          std::println("Player {}: Planning move boulder at {}", id, destination);
+          Commands commands;
+          commands.emplace(FetchBoulder(destination));
+          commands.emplace(DropBoulder);
+          m_player.SetCommands(commands);
+
+          m_playerState = PlayerState::MovingBoulder;
+        }
+        else
+        {
+          m_playerState = PlayerState::Idle;
+        }
+      }
+
+      if(m_playerState != PlayerState::MovingBoulder)
+      {
+        if(m_playerState != PlayerState::Exploring)
+        {
+          std::println("Player {}: Resume exploration", id);
+          m_player.SetCommand(Explore);
+          m_playerState = PlayerState::Exploring;
+        }
+        else
+        {
+          if(!bouldersToMove.empty())
+          {
+            std::println("Player {}: Reconsidering unchecked boulders", id);
+            Commands commands;
+            commands.emplace(ReconsiderUncheckedBoulders);
+            m_player.SetCommands(commands);
+
+            m_playerState = PlayerState::ReconsideringUncheckedBoulders;
+          }
+          else if(doorToOpen)
+          {
+            std::println("Player {}: Planning to open {} door", id, *doorToOpen);
+            auto     doorData = map->DoorData().at(*doorToOpen);
+            Commands commands;
+            commands.emplace(FetchKey(*doorData.keyPosition));
+            commands.emplace(OpenDoor(*doorData.doorPosition, *doorToOpen));
+            m_player.SetCommands(commands);
+
+            m_playerState = PlayerState::OpeningDoor;
+          }
+          else if(map->Exit())
+          {
+            std::println("Going to the exit");
+            m_player.SetCommand(Visit(*map->Exit()));
+            m_playerState = PlayerState::MovingToExit;
+          }
+          else
+          {
+            std::println("Terminating player {}", id);
+            m_player.SetCommand(Terminate);
+            m_playerState = PlayerState::Terminating;
+          }
+        }
       }
     }
   }
@@ -157,16 +167,25 @@ namespace Bot
     return std::nullopt;
   }
 
-  std::optional<Offset> Game::BoulderToMove(const std::shared_ptr<const Map>&, int)
+  OffsetSet Game::BouldersToMove(const std::shared_ptr<const Map>&, int)
   {
-    // Todo: Maybe start with the closest one, using the map
-    auto playerState = m_player.State();
-    if(!playerState.navigationParameters.uncheckedBoulders.empty())
-    {
-      return *playerState.navigationParameters.uncheckedBoulders.begin();
-    }
+    return m_player.State().navigationParameters.uncheckedBoulders;
+  }
 
-    return std::nullopt;
+  Offset Game::ClosestUncheckedBoulder(const Map& map, int)
+  {
+    auto                 state                = m_player.State();
+    NavigationParameters navigationParameters = state.navigationParameters;
+    navigationParameters.currentBoulders.clear();
+    navigationParameters.avoidBoulders = false;
+
+    auto weights = WeightMap(map, navigationParameters);
+    auto [dist, destination] =
+      DistanceMap(weights, state.position, [&](Offset p) { return state.navigationParameters.uncheckedBoulders.contains(p); });
+
+    assert(destination);
+
+    return *destination;
   }
 
 } // namespace Bot

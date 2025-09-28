@@ -184,6 +184,7 @@ namespace Bot
           [&](const Bot::OpenDoor& door) { return OpenDoor(door.position, door.color); },
           [&](const Bot::FetchBoulder& boulder) { return FetchBoulder(boulder.position); },
           [&](const Bot::DropBoulder_t&) { return DropBoulder(); },
+          [&](const Bot::ReconsiderUncheckedBoulders_t&) { return ReconsiderUncheckedBoulders(); },
         },
         commands->front());
 
@@ -191,7 +192,7 @@ namespace Bot
         return result;
       if(*result)
         commands->pop();
-    }
+    } // namespace Bot
     assert(result);
     assert(!*result || commands->empty());
 
@@ -344,7 +345,7 @@ namespace Bot
     return ComputePathAndThen(
       map,
       destination,
-      [&map = *map, destination](Offset p) { return p == destination; },
+      [destination](Offset p) { return p == destination; },
       [&](auto& state) { return MoveToDestination(state); });
   }
 
@@ -426,7 +427,7 @@ namespace Bot
     return ComputePathAndThen(
       map,
       destination,
-      [&map = *map, destination](Offset p) { return p == destination; },
+      [destination](Offset p) { return p == destination; },
       [&](auto& state) { return MoveAlongPathThenOpenDoor(state, destination, color, map); });
   }
 
@@ -436,18 +437,18 @@ namespace Bot
     return ComputePathAndThen(
       map,
       destination,
-      [&map = *map, destination](Offset p) { return p == destination; },
+      [destination](Offset p) { return p == destination; },
       [&](auto& state)
       {
-        auto result = MoveAlongPathThenUse(state, map, Tile::TILE_EMPTY, "Fetch boulder");
-        if(result && *result)
+        auto moveResult = MoveAlongPathThenUse(state, map, Tile::TILE_EMPTY, "Fetch boulder");
+        if(moveResult && !*moveResult && IsUse(state->next))
         {
-          // Boulder was picked up
+          std::println("FetchBoulder: About to pick up boulder at {}", destination);
           state->navigationParameters.uncheckedBoulders.erase(destination);
           auto eraseCount = state->navigationParameters.currentBoulders.erase(destination);
           assert(eraseCount == 1);
         }
-        return result;
+        return moveResult;
       });
   }
 
@@ -465,18 +466,31 @@ namespace Bot
           return true;
         }
         auto moveResult = MoveAlongPathThenUse(state, map, Tile::TILE_BOULDER, "Drop boulder");
-        if(IsUse(state->next))
+        if(moveResult)
         {
-          auto destination = state->reversedPath.front();
-          std::println("DropBoulder: About to drop boulder at {}", destination);
-          state->navigationParameters.currentBoulders.insert(destination);
-        }
-        else
-        {
-          std::println("DropBoulder: Still carrying boulder");
+          if(IsUse(state->next))
+          {
+            auto destination = state->reversedPath.front();
+            std::println("DropBoulder: About to drop boulder at {}", destination);
+            state->navigationParameters.currentBoulders.insert(destination);
+          }
+          else
+          {
+            std::println("DropBoulder: Still carrying boulder");
+          }
         }
         return moveResult;
       });
+  }
+  std::expected<bool, std::string> Player::ReconsiderUncheckedBoulders()
+  {
+    auto map                                      = GetMap();
+    auto state                                    = m_state.Lock();
+    state->navigationParameters.uncheckedBoulders = state->navigationParameters.uncheckedBoulders
+                                                    | std::views::filter([&map](Offset p) { return !map->IsGoodBoulder(p); })
+                                                    | std::ranges::to<OffsetSet>();
+
+    return true;
   }
 
   std::expected<bool, std::string> Player::TerminateRequested()

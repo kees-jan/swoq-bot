@@ -5,6 +5,7 @@
 #include <format>
 #include <generator>
 #include <initializer_list>
+#include <set>
 
 #include "Swoq.pb.h"
 
@@ -116,6 +117,8 @@ inline std::generator<Offset> OffsetsInRectangle(Offset maxExclusive)
     }
   }
 }
+
+using OffsetSet = std::set<Offset, OffsetLess>;
 
 template <>
 struct std::formatter<Offset>
