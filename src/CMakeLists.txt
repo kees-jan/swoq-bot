@@ -16,6 +16,7 @@ add_library(bot_lib STATIC
         TypeTraits.h
         Vector2d.h
         LoggingAndDebugging.h
+        Vector2d.cpp
 )
 target_link_libraries(bot_lib PUBLIC
         protobuf::libprotobuf

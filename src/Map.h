@@ -8,9 +8,7 @@ namespace Bot
   using Swoq::Interface::Tile;
 
   Vector2d<Tile> ViewFromState(int visibility, const Swoq::Interface::PlayerState& state);
-  void           Print(const Vector2d<char>& chars);
   void           Print(const Vector2d<Tile>& tiles);
-  void           Print(const Vector2d<int>& ints);
 
   constexpr char CharFromTile(Tile tile)
   {

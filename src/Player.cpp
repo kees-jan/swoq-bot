@@ -215,7 +215,7 @@ namespace Bot
       characterMap[p0]    = 'a';
       for(const auto& step: p0state.reversedPath)
       {
-        if(characterMap[step] == '.')
+        if(characterMap[step] == '.' || characterMap[step] == ' ')
         {
           characterMap[step] = '*';
         }

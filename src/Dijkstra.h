@@ -3,10 +3,13 @@
 #include <algorithm>
 #include <cassert>
 #include <optional>
+#include <print>
 #include <queue>
 #include <ranges>
 #include <tuple>
 #include <utility>
+
+#include <LoggingAndDebugging.h>
 
 #include "Map.h"
 #include "Offset.h"
@@ -29,6 +32,10 @@ namespace Bot
       bool operator<(const QueueEntry& other) const { return distance > other.distance; }
     };
 
+    const std::vector<std::initializer_list<Offset>> MixedDirections{
+      {Up, Right, Down, Left},
+      {Left, Down, Right, Up},
+    };
   } // namespace Detail
 
   constexpr int Infinity(const Vector2dBase& v) { return 2 * v.Width() * v.Height(); }
@@ -70,6 +77,11 @@ namespace Bot
         }
       }
     }
+    if constexpr(Debugging::PrintDistanceMap)
+    {
+      std::println("Distance map:");
+      Print(dist);
+    }
     return {dist, destination};
   }
 
@@ -81,6 +93,7 @@ namespace Bot
   template <typename Callable>
   std::vector<Offset> ReversedPath(const Vector2d<int>& weights, Offset start, Callable&& c)
   {
+
     auto [dist, destination] = DistanceMap(weights, start, std::forward<Callable>(c));
     std::vector<Offset> path;
     if(destination)
@@ -88,15 +101,18 @@ namespace Bot
       auto d = *destination;
       if(dist[d] < Infinity(weights))
       {
+        bool toggle = false;
         while(d != start)
         {
           path.push_back(d);
-          auto possibilities = Directions | std::views::transform([&](Offset o) { return d + o; })
+
+          auto possibilities = Detail::MixedDirections[toggle] | std::views::transform([&](Offset o) { return d + o; })
                                | std::views::filter([&](Offset p) { return dist.IsInRange(p); });
 
           auto it = std::ranges::min_element(possibilities, [&](Offset a, Offset b) { return dist[a] < dist[b]; });
           assert(it != possibilities.end());
-          d = *it;
+          d      = *it;
+          toggle = !toggle;
         }
       }
     }

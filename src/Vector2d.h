@@ -107,3 +107,6 @@ public:
 private:
   std::vector<T> data;
 };
+
+void Print(const Vector2d<char>& chars);
+void Print(const Vector2d<int>& ints);
