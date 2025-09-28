@@ -17,6 +17,7 @@ add_library(bot_lib STATIC
         Vector2d.h
         LoggingAndDebugging.h
         Vector2d.cpp
+        Formatters.h
 )
 target_link_libraries(bot_lib PUBLIC
         protobuf::libprotobuf

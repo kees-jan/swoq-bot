@@ -48,8 +48,11 @@ namespace Bot
     std::expected<bool, std::string> OpenDoor(Offset destination, DoorColor color);
     std::expected<bool, std::string> FetchBoulder(Offset destination);
     std::expected<bool, std::string> DropBoulder();
+    std::expected<bool, std::string> PlaceBoulderOnPressurePlate(Offset destination, DoorColor color);
     std::expected<bool, std::string> ReconsiderUncheckedBoulders();
     std::expected<bool, std::string> TerminateRequested();
+    std::expected<bool, std::string> Wait();
+    std::expected<bool, std::string> LeaveSquare(std::optional<Offset>& originalSquare);
     std::expected<void, std::string> UpdatePlan();
     std::expected<bool, std::string> DoCommandIfAny();
     bool                             WaitForCommands();

@@ -2,6 +2,8 @@
 
 #include <print>
 
+#include "Swoq.hpp"
+
 void Print(const Vector2d<char>& chars)
 {
   std::print("+");
@@ -36,6 +38,18 @@ void Print(const Vector2d<int>& ints)
     for(int x = 0; x < ints.Width(); ++x)
     {
       std::print("{}, ", ints[Offset(x, y)]);
+    }
+    std::print("\n");
+  }
+}
+
+void PrintEnum(const Vector2d<Swoq::Interface::Tile>& tiles)
+{
+  for(int y = 0; y < tiles.Height(); ++y)
+  {
+    for(int x = 0; x < tiles.Width(); ++x)
+    {
+      std::print("{}, ", tiles[Offset(x, y)]);
     }
     std::print("\n");
   }

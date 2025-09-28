@@ -61,6 +61,18 @@ namespace Bot
     DoorColor color;
   };
 
+  struct PlaceBoulderOnPressurePlate
+  {
+    constexpr PlaceBoulderOnPressurePlate(Offset pressurePlatePosition, DoorColor color_)
+      : position{pressurePlatePosition}
+      , color{color_}
+    {
+    }
+
+    Offset    position;
+    DoorColor color;
+  };
+
   struct FetchKey
   {
     constexpr FetchKey(Offset keyPosition)
@@ -85,6 +97,14 @@ namespace Bot
   {
   } ReconsiderUncheckedBoulders;
 
+  constexpr struct Wait_t
+  {
+  } Wait;
+
+  constexpr struct LeaveSquare_t
+  {
+    std::optional<Offset> originalSquare;
+  } LeaveSquare;
 
   using Command  = std::variant<Explore_t,
                                 VisitTiles,
@@ -94,7 +114,10 @@ namespace Bot
                                 OpenDoor,
                                 FetchBoulder,
                                 DropBoulder_t,
-                                ReconsiderUncheckedBoulders_t>;
+                                ReconsiderUncheckedBoulders_t,
+                                PlaceBoulderOnPressurePlate,
+                                Wait_t,
+                                LeaveSquare_t>;
   using Commands = std::queue<Command>;
 
 } // namespace Bot

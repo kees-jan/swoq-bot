@@ -4,7 +4,6 @@
 #include <cassert>
 #include <print>
 
-#include "Dijkstra.h"
 #include "LoggingAndDebugging.h"
 #include "Swoq.hpp"
 
@@ -169,12 +168,13 @@ namespace Bot
 
     for(const auto offset: OffsetsInRectangle(map.Size()))
     {
-      auto tile       = map[offset];
-      weights[offset] = (tile == Tile::TILE_WALL || (tile == Tile::TILE_BOULDER && navigationParameters.avoidBoulders)
-                         || navigationParameters.currentBoulders.contains(offset)
-                         || (IsDoor(tile) && navigationParameters.doorParameters.at(DoorKeyColor(tile)).avoidDoor) || IsKey(tile))
-                          ? Inf
-                          : 1;
+      auto tile = map[offset];
+      weights[offset] =
+        (tile == Tile::TILE_WALL || (tile == Tile::TILE_BOULDER && navigationParameters.avoidBoulders)
+         || navigationParameters.currentBoulders.contains(offset)
+         || (IsDoor(tile) && navigationParameters.doorParameters.at(DoorKeyPlateColor(tile)).avoidDoor) || IsKey(tile))
+          ? Inf
+          : 1;
     }
     if(destination)
     {
@@ -187,6 +187,15 @@ namespace Bot
       Print(weights);
     }
     return weights;
+  }
+  Vector2d<int> WeightMap(const Vector2d<Tile>& map, const NavigationParameters& navigationParameters)
+  {
+    return WeightMap(map, navigationParameters, std::optional<Offset>());
+  }
+
+  Vector2d<int> WeightMap(const Vector2d<Tile>& map, const NavigationParameters& navigationParameters, Offset destination)
+  {
+    return WeightMap(map, navigationParameters, std::optional<Offset>(destination));
   }
 
   Vector2d<Swoq::Interface::Tile> ViewFromState(int visibility, const Swoq::Interface::PlayerState& state)
@@ -295,11 +304,15 @@ namespace Bot
         }
         if(IsDoor(view[p]))
         {
-          m_doorData[DoorKeyColor(view[p])].doorPosition = destination;
+          m_doorData[DoorKeyPlateColor(view[p])].doorPosition.insert(destination);
         }
         if(IsKey(view[p]))
         {
-          m_doorData[DoorKeyColor(view[p])].keyPosition = destination;
+          m_doorData[DoorKeyPlateColor(view[p])].keyPosition = destination;
+        }
+        if(IsPressurePlate(view[p]))
+        {
+          m_doorData[DoorKeyPlateColor(view[p])].pressurePlatePosition = destination;
         }
         if(view[p] != Tile::TILE_PLAYER && (me[destination] == Tile::TILE_UNKNOWN || view[p] != Tile::TILE_BOULDER))
         {

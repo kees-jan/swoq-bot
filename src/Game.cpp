@@ -71,14 +71,16 @@ namespace Bot
 
     if(id == 0)
     {
-      auto                     map            = m_map.Get();
-      std::optional<DoorColor> doorToOpen     = DoorToOpen(map, id);
-      OffsetSet                bouldersToMove = BouldersToMove(map, id);
-      std::println("Player {}: Playerstate: {}, exit: {}, door to open: {}, boulders to check: {}",
+      auto                     map                     = m_map.Get();
+      std::optional<DoorColor> doorToOpen              = DoorToOpen(map, id);
+      std::optional<DoorColor> pressurePlateToActivate = PressurePlateToActivate(map, id);
+      OffsetSet                bouldersToMove          = BouldersToMove(map, id);
+      std::println("Player {}: Playerstate: {}, exit: {}, door to open: {}, pressureplate to activate: {}, boulders to check: {}",
                    id,
                    m_playerState,
                    map->Exit(),
                    doorToOpen,
+                   pressurePlateToActivate,
                    bouldersToMove);
 
 
@@ -130,7 +132,24 @@ namespace Bot
             auto     doorData = map->DoorData().at(*doorToOpen);
             Commands commands;
             commands.emplace(FetchKey(*doorData.keyPosition));
-            commands.emplace(OpenDoor(*doorData.doorPosition, *doorToOpen));
+            commands.emplace(OpenDoor(*doorData.doorPosition.begin(), *doorToOpen));
+            m_player.SetCommands(commands);
+
+            m_playerState = PlayerState::OpeningDoor;
+          }
+          else if(pressurePlateToActivate)
+          {
+            auto doorData              = map->DoorData().at(*pressurePlateToActivate);
+            auto pressurePlatePosition = *doorData.pressurePlatePosition;
+            auto boulder               = ClosestUnusedBoulder(*map, pressurePlatePosition, id);
+            std::println("Player {}: Planning to move boulder at {} to {} pressureplate at {}",
+                         id,
+                         boulder,
+                         *pressurePlateToActivate,
+                         pressurePlatePosition);
+            Commands commands;
+            commands.emplace(FetchBoulder(boulder));
+            commands.emplace(PlaceBoulderOnPressurePlate(pressurePlatePosition, *pressurePlateToActivate));
             m_player.SetCommands(commands);
 
             m_playerState = PlayerState::OpeningDoor;
@@ -158,7 +177,24 @@ namespace Bot
     for(auto color: DoorColors)
     {
       auto doorData = map->DoorData().at(color);
-      if(doorData.doorPosition && doorData.keyPosition && playerState.navigationParameters.doorParameters.at(color).avoidDoor)
+      if(!doorData.doorPosition.empty() && doorData.keyPosition
+         && playerState.navigationParameters.doorParameters.at(color).avoidDoor)
+      {
+        return color;
+      }
+    }
+
+    return std::nullopt;
+  }
+
+  std::optional<DoorColor> Game::PressurePlateToActivate(const std::shared_ptr<const Map>& map, int)
+  {
+    auto playerState = m_player.State();
+    for(auto color: DoorColors)
+    {
+      auto doorData = map->DoorData().at(color);
+      if(!doorData.doorPosition.empty() && doorData.pressurePlatePosition
+         && playerState.navigationParameters.doorParameters.at(color).avoidDoor)
       {
         return color;
       }
@@ -186,6 +222,21 @@ namespace Bot
     assert(destination);
 
     return *destination;
+  }
+  Offset Game::ClosestUnusedBoulder(const Map& map, Offset currentLocation, int)
+  {
+    auto                 state                = m_player.State();
+    NavigationParameters navigationParameters = state.navigationParameters;
+
+    auto destination = [&](Offset p)
+    { return state.navigationParameters.currentBoulders.contains(p) && !state.navigationParameters.usedBoulders.contains(p); };
+
+    auto weights                 = WeightMap(map, navigationParameters, destination);
+    auto [dist, boulderPosition] = DistanceMap(weights, currentLocation, destination);
+
+    assert(boulderPosition);
+
+    return *boulderPosition;
   }
 
 } // namespace Bot

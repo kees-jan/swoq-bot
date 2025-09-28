@@ -110,3 +110,4 @@ private:
 
 void Print(const Vector2d<char>& chars);
 void Print(const Vector2d<int>& ints);
+void PrintEnum(const Vector2d<Swoq::Interface::Tile>& tiles);

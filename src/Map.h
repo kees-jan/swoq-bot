@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Dijkstra.h"
+#include "LoggingAndDebugging.h"
 #include "Swoq.pb.h"
 #include "Vector2d.h"
 
@@ -93,7 +95,8 @@ namespace Bot
   struct DoorData
   {
     std::optional<Offset> keyPosition;
-    std::optional<Offset> doorPosition;
+    std::optional<Offset> pressurePlatePosition;
+    OffsetSet             doorPosition;
 
     bool operator==(const DoorData& other) const
     {
@@ -115,17 +118,14 @@ namespace Bot
 
   struct NavigationParameters
   {
-    DoorParameterMap             doorParameters{DoorColors
+    DoorParameterMap doorParameters{DoorColors
                                     | std::views::transform([](auto color) { return std::pair(color, DoorParameters{}); })
                                     | std::ranges::to<DoorParameterMap>()};
-    bool                         avoidBoulders = false;
-    OffsetSet uncheckedBoulders{};
-    OffsetSet currentBoulders{};
+    bool             avoidBoulders = false;
+    OffsetSet        uncheckedBoulders{};
+    OffsetSet        currentBoulders{};
+    OffsetSet        usedBoulders{};
   };
-
-  Vector2d<int> WeightMap(const Vector2d<Tile>&        map,
-                          const NavigationParameters&  navigationParameters,
-                          const std::optional<Offset>& destination = std::nullopt);
 
   struct TileComparisonResult
   {
@@ -141,10 +141,10 @@ namespace Bot
 
   struct MapComparisonResult
   {
-    Offset                       newMapSize;
-    bool                         needsUpdate = false;
+    Offset    newMapSize;
+    bool      needsUpdate = false;
     OffsetSet newBoulders;
-    bool                         stuffHasMoved = false;
+    bool      stuffHasMoved = false;
 
     constexpr explicit MapComparisonResult(Offset newMapSize_)
       : newMapSize(newMapSize_)
@@ -171,9 +171,9 @@ namespace Bot
 
   struct MapUpdateResult
   {
-    std::shared_ptr<Map>         map;
-    OffsetSet newBoulders;
-    bool                         stuffHasMoved = false;
+    std::shared_ptr<Map> map;
+    OffsetSet            newBoulders;
+    bool                 stuffHasMoved = false;
 
     MapUpdateResult(std::shared_ptr<Map>  map_,
                     MapComparisonResult&& comparisonResult) // NOLINT(*-rvalue-reference-param-not-moved)
@@ -214,6 +214,12 @@ namespace Bot
     return tile == Tile::TILE_KEY_RED || tile == Tile::TILE_KEY_GREEN || tile == Tile::TILE_KEY_BLUE;
   }
 
+  constexpr bool IsPressurePlate(Tile tile)
+  {
+    return tile == Tile::TILE_PRESSURE_PLATE_RED || tile == Tile::TILE_PRESSURE_PLATE_GREEN
+           || tile == Tile::TILE_PRESSURE_PLATE_BLUE;
+  }
+
   constexpr bool IsDoor(Tile tile)
   {
     return tile == Tile::TILE_DOOR_RED || tile == Tile::TILE_DOOR_GREEN || tile == Tile::TILE_DOOR_BLUE;
@@ -233,28 +239,62 @@ namespace Bot
     assert(false);
   }
 
-  constexpr DoorColor DoorKeyColor(Tile t)
+  constexpr DoorColor DoorKeyPlateColor(Tile t)
   {
-    assert(IsDoor(t) || IsKey(t));
+    assert(IsDoor(t) || IsKey(t) || IsPressurePlate(t));
 
     switch(t)
     {
     case Tile::TILE_DOOR_RED:
     case Tile::TILE_KEY_RED:
+    case Tile::TILE_PRESSURE_PLATE_RED:
       return DoorColor::Red;
 
     case Tile::TILE_DOOR_GREEN:
     case Tile::TILE_KEY_GREEN:
+    case Tile::TILE_PRESSURE_PLATE_GREEN:
       return DoorColor::Green;
 
     case Tile::TILE_DOOR_BLUE:
     case Tile::TILE_KEY_BLUE:
+    case Tile::TILE_PRESSURE_PLATE_BLUE:
       return DoorColor::Blue;
 
     default:
       assert(false);
       break;
     }
+  }
+
+  Vector2d<int> WeightMap(const Vector2d<Tile>& map, const NavigationParameters& navigationParameters);
+  Vector2d<int> WeightMap(const Vector2d<Tile>& map, const NavigationParameters& navigationParameters, Offset destination);
+  Vector2d<int> WeightMap(const Vector2d<Tile>&        map,
+                          const NavigationParameters&  navigationParameters,
+                          const std::optional<Offset>& destination);
+
+  template <typename Callable>
+  Vector2d<int> WeightMap(const Vector2d<Tile>& map, const NavigationParameters& navigationParameters, Callable callable)
+  {
+    const int Inf = Infinity(map);
+    Vector2d  weights(map.Width(), map.Height(), Inf);
+
+    for(const auto offset: OffsetsInRectangle(map.Size()))
+    {
+      auto tile = map[offset];
+      weights[offset] =
+        (!std::invoke(std::forward<Callable>(callable), offset)
+         && (tile == Tile::TILE_WALL || (tile == Tile::TILE_BOULDER && navigationParameters.avoidBoulders)
+             || navigationParameters.currentBoulders.contains(offset)
+             || (IsDoor(tile) && navigationParameters.doorParameters.at(DoorKeyPlateColor(tile)).avoidDoor) || IsKey(tile)))
+          ? Inf
+          : 1;
+    }
+    if constexpr(Debugging::PrintDistanceMap)
+    {
+      std::println("Weight map:");
+      Print(weights);
+    }
+    return weights;
   }
 
   std::optional<Offset>
@@ -298,46 +338,5 @@ struct std::formatter<Bot::DoorColor>
       s = "<UNKNOWN>";
 
     return std::format_to(ctx.out(), "{}", s);
-  }
-};
-
-template <typename T>
-struct std::formatter<std::optional<T>>
-{
-  constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin(); }
-  auto           format(const std::optional<T>& item, std::format_context& ctx) const
-  {
-    if(item)
-      return std::format_to(ctx.out(), "{}", *item);
-
-    return std::format_to(ctx.out(), "(none)");
-  }
-};
-
-template <typename Key, typename Compare, typename Allocator>
-struct std::formatter<std::set<Key, Compare, Allocator>>
-{
-  constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin(); }
-  auto           format(const std::set<Key, Compare, Allocator>& item, std::format_context& ctx) const
-  {
-    auto cur = item.begin();
-    auto end = item.end();
-    if(item.empty())
-    {
-      return std::format_to(ctx.out(), "(empty)");
-    }
-
-    auto it = std::format_to(ctx.out(), "{{");
-
-    if(cur != end)
-    {
-      it = std::format_to(it, "{}", *cur++);
-    }
-    while(cur != end)
-    {
-      it = std::format_to(it, ", {}", *cur++);
-    }
-
-    return std::format_to(it, "}}");
   }
 };

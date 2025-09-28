@@ -11,7 +11,7 @@
 
 #include <LoggingAndDebugging.h>
 
-#include "Map.h"
+#include "Formatters.h"
 #include "Offset.h"
 #include "Vector2d.h"
 
@@ -47,7 +47,7 @@ namespace Bot
 
     std::optional<Offset> destination;
     Vector2d<int>         dist(weights.Width(), weights.Height(), Infinity(weights));
-    dist[weights.ToIndex(start)] = 0;
+    dist[start] = 0;
     std::priority_queue<Detail::QueueEntry> pq;
     pq.emplace(0, start);
     while(!pq.empty())

@@ -185,6 +185,9 @@ namespace Bot
           [&](const Bot::FetchBoulder& boulder) { return FetchBoulder(boulder.position); },
           [&](const Bot::DropBoulder_t&) { return DropBoulder(); },
           [&](const Bot::ReconsiderUncheckedBoulders_t&) { return ReconsiderUncheckedBoulders(); },
+          [&](const Bot::PlaceBoulderOnPressurePlate& place) { return PlaceBoulderOnPressurePlate(place.position, place.color); },
+          [&](const Bot::Wait_t&) { return Wait(); },
+          [&](Bot::LeaveSquare_t& leaveSquare) { return LeaveSquare(leaveSquare.originalSquare); },
         },
         commands->front());
 
@@ -223,6 +226,11 @@ namespace Bot
       }
       std::println("Player {} map:", m_id);
       Print(characterMap);
+      std::println();
+    }
+    if constexpr(Debugging::PrintPlayerMapsAsTiles)
+    {
+      PrintEnum(*GetMap(true));
       std::println();
     }
   }
@@ -445,6 +453,7 @@ namespace Bot
         {
           std::println("FetchBoulder: About to pick up boulder at {}", destination);
           state->navigationParameters.uncheckedBoulders.erase(destination);
+          state->navigationParameters.usedBoulders.erase(destination);
           auto eraseCount = state->navigationParameters.currentBoulders.erase(destination);
           assert(eraseCount == 1);
         }
@@ -482,6 +491,38 @@ namespace Bot
         return moveResult;
       });
   }
+
+  std::expected<bool, std::string> Player::PlaceBoulderOnPressurePlate(Offset destination, DoorColor color)
+  {
+    auto map = GetMap();
+    return ComputePathAndThen(
+      map,
+      [&](Offset p) { return p == destination; },
+      [&](auto& state) -> std::expected<bool, std::string>
+      {
+        if(m_game->state().playerstate().inventory() == Swoq::Interface::INVENTORY_NONE)
+        {
+          return true;
+        }
+        auto moveResult = MoveAlongPathThenUse(state, map, Tile::TILE_BOULDER, "Place boulder on pressureplate");
+        if(moveResult)
+        {
+          if(IsUse(state->next))
+          {
+            std::println("PlaceBoulderOnPressurePlate: About to drop boulder at {}", destination);
+            state->navigationParameters.currentBoulders.insert(destination);
+            state->navigationParameters.usedBoulders.insert(destination);
+            state->navigationParameters.doorParameters.at(color).avoidDoor = false;
+          }
+          else
+          {
+            std::println("PlaceBoulderOnPressurePlate: Still carrying boulder");
+          }
+        }
+        return moveResult;
+      });
+  }
+
   std::expected<bool, std::string> Player::ReconsiderUncheckedBoulders()
   {
     auto map                                      = GetMap();
@@ -498,6 +539,28 @@ namespace Bot
     std::println("Player {}: Terminate requested", m_id);
     m_state.Lock()->terminateRequested = true;
     return false;
+  }
+
+  std::expected<bool, std::string> Player::Wait()
+  {
+    m_state.Lock()->next = DirectedAction::DIRECTED_ACTION_NONE;
+    return false;
+  }
+
+  std::expected<bool, std::string> Player::LeaveSquare(std::optional<Offset>& originalSquare)
+  {
+    auto position = m_state.Get().position;
+    if(!originalSquare)
+    {
+      originalSquare = position;
+    }
+    else if(*originalSquare != position)
+    {
+      return true;
+    }
+
+    return ComputePathAndThen(
+      GetMap(), [position](Offset p) { return p != position; }, [&](auto& state) { return MoveToDestination(state); });
   }
 
   std::expected<void, std::string> Player::Run()
