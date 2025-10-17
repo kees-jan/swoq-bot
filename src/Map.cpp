@@ -30,7 +30,7 @@ namespace Bot
       bool const result = viewTile == Tile::TILE_UNKNOWN || destinationTile == Tile::TILE_UNKNOWN
                           || viewTile == Tile::TILE_BOULDER || destinationTile == Tile::TILE_BOULDER
                           || destinationTile == viewTile || IsKey(destinationTile) || IsDoor(destinationTile)
-                          || viewTile == Tile::TILE_PLAYER;
+                          || viewTile == Tile::TILE_PLAYER || viewTile == Tile::TILE_ENEMY;
 
       if(!result)
         std::println("Tiles are not consistent: view {}, destination {}", viewTile, destinationTile);
@@ -67,6 +67,7 @@ namespace Bot
         case Tile::TILE_UNKNOWN:
         case Tile::TILE_EMPTY:
         case Tile::TILE_PLAYER:
+        case Tile::TILE_ENEMY:
           result = TileComparisonResult::NoChange();
           break;
         case Tile::TILE_BOULDER:
@@ -84,6 +85,7 @@ namespace Bot
         assert(view == Tile::TILE_EXIT || view == Tile::TILE_UNKNOWN || view == Tile::TILE_PLAYER);
         result = TileComparisonResult::NoChange();
         break;
+      case Tile::TILE_ENEMY:
       case Tile::TILE_PLAYER:
         assert(false);
 
@@ -100,6 +102,7 @@ namespace Bot
           result = TileComparisonResult::StuffHasMoved();
           break;
         case Tile::TILE_PLAYER:
+        case Tile::TILE_ENEMY:
         case Tile::TILE_UNKNOWN:
           result = TileComparisonResult::NoChange();
           break;
@@ -118,6 +121,7 @@ namespace Bot
           result = TileComparisonResult::StuffHasMoved();
           break;
         case Tile::TILE_PLAYER:
+        case Tile::TILE_ENEMY:
         case Tile::TILE_UNKNOWN:
           result = TileComparisonResult::NoChange();
           break;
@@ -132,6 +136,7 @@ namespace Bot
         {
         case Tile::TILE_UNKNOWN:
         case Tile::TILE_PLAYER:
+        case Tile::TILE_ENEMY:
         case Tile::TILE_BOULDER:
           result = TileComparisonResult::NoChange();
           break;
@@ -314,7 +319,8 @@ namespace Bot
         {
           m_doorData[DoorKeyPlateColor(view[p])].pressurePlatePosition = destination;
         }
-        if(view[p] != Tile::TILE_PLAYER && (me[destination] == Tile::TILE_UNKNOWN || view[p] != Tile::TILE_BOULDER))
+        if(view[p] != Tile::TILE_PLAYER && view[p] != Tile::TILE_ENEMY
+           && (me[destination] == Tile::TILE_UNKNOWN || view[p] != Tile::TILE_BOULDER))
         {
           me[destination] = view[p];
         }
@@ -354,7 +360,7 @@ namespace Bot
         {
           continue;
         }
-        if(view[p] != Tile::TILE_PLAYER)
+        if(view[p] != Tile::TILE_PLAYER && view[p] != Tile::TILE_ENEMY)
         {
           foundDelta |= (me[destination] != view[p]);
           me[destination] = view[p];

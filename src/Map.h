@@ -23,7 +23,7 @@ namespace Bot
     case Tile::TILE_WALL:
       return '#';
     case Tile::TILE_EXIT:
-      return 'E';
+      return 'X';
     case Tile::TILE_PLAYER:
       return 'O';
     case Tile::TILE_DOOR_RED:
@@ -46,6 +46,8 @@ namespace Bot
       return static_cast<char>(223);
     case Tile::TILE_BOULDER:
       return 'o';
+    case Tile::TILE_ENEMY:
+      return 'E';
     case Tile::Tile_INT_MAX_SENTINEL_DO_NOT_USE_:
     case Tile::Tile_INT_MIN_SENTINEL_DO_NOT_USE_:
       break;
@@ -71,6 +73,7 @@ namespace Bot
     case Tile::TILE_PRESSURE_PLATE_GREEN:
     case Tile::TILE_PRESSURE_PLATE_BLUE:
     case Tile::TILE_BOULDER:
+    case Tile::TILE_ENEMY:
       return true;
 
     case Tile::TILE_WALL:

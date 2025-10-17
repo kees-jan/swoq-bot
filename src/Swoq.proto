@@ -54,6 +54,8 @@ enum ActResult {
     ACT_RESULT_USE_NOT_ALLOWED = 6;
     ACT_RESULT_INVENTORY_FULL = 7;
     ACT_RESULT_INVENTORY_EMPTY = 8;
+    // Level 8 and higher:
+    ACT_RESULT_NO_SWORD = 9;
 }
 
 message State {
@@ -90,6 +92,8 @@ message PlayerState {
     repeated Tile surroundings = 2;
     // Level 2 and higher:
     optional Inventory inventory = 3;
+    // Level 8 and higher:
+    optional int32 health = 4;
 }
 
 message Position {
@@ -116,6 +120,8 @@ enum Tile {
     TILE_PRESSURE_PLATE_RED = 12;
     TILE_PRESSURE_PLATE_GREEN = 13;
     TILE_PRESSURE_PLATE_BLUE = 14;
+    // Level 8 and higher:
+    TILE_ENEMY = 15;
 }
 
 enum Inventory {

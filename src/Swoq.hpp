@@ -166,6 +166,9 @@ struct std::formatter<Swoq::Interface::ActResult>
     case ACT_RESULT_INVENTORY_FULL:
       s = "INVENTORY_FULL";
       break;
+    case ACT_RESULT_NO_SWORD:
+      s = "NO_SWORD";
+      break;
     case ActResult_INT_MAX_SENTINEL_DO_NOT_USE_:
     case ActResult_INT_MIN_SENTINEL_DO_NOT_USE_:
       std::terminate();
@@ -277,6 +280,9 @@ struct std::formatter<Swoq::Interface::Tile>
       break;
     case TILE_BOULDER:
       s = "TILE_BOULDER";
+      break;
+    case TILE_ENEMY:
+      s = "TILE_ENEMY";
       break;
     case Tile_INT_MIN_SENTINEL_DO_NOT_USE_:
     case Tile_INT_MAX_SENTINEL_DO_NOT_USE_:
