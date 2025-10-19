@@ -142,17 +142,31 @@ namespace Bot
             auto doorData              = map->DoorData().at(*pressurePlateToActivate);
             auto pressurePlatePosition = *doorData.pressurePlatePosition;
             auto boulder               = ClosestUnusedBoulder(*map, pressurePlatePosition, id);
-            std::println("Player {}: Planning to move boulder at {} to {} pressureplate at {}",
-                         id,
-                         boulder,
-                         *pressurePlateToActivate,
-                         pressurePlatePosition);
-            Commands commands;
-            commands.emplace(FetchBoulder(boulder));
-            commands.emplace(PlaceBoulderOnPressurePlate(pressurePlatePosition, *pressurePlateToActivate));
-            m_player.SetCommands(commands);
+            if(boulder)
+            {
+              std::println("Player {}: Planning to move boulder at {} to {} pressureplate at {}",
+                           id,
+                           *boulder,
+                           *pressurePlateToActivate,
+                           pressurePlatePosition);
+              Commands commands;
+              commands.emplace(FetchBoulder(*boulder));
+              commands.emplace(PlaceBoulderOnPressurePlate(pressurePlatePosition, *pressurePlateToActivate));
+              m_player.SetCommands(commands);
 
-            m_playerState = PlayerState::OpeningDoor;
+              m_playerState = PlayerState::OpeningDoor;
+            }
+            else
+            {
+              std::println("Player {}: No boulder found to put on {} pressureplate at {}. Going there myself",
+                           id,
+                           *pressurePlateToActivate,
+                           pressurePlatePosition);
+              Commands commands;
+              commands.emplace(Visit(pressurePlatePosition));
+              commands.emplace(DropDoorOnEnemy(doorData.doorPosition));
+              m_player.SetCommands(commands);
+            }
           }
           else if(map->Exit())
           {
@@ -223,7 +237,8 @@ namespace Bot
 
     return *destination;
   }
-  Offset Game::ClosestUnusedBoulder(const Map& map, Offset currentLocation, int)
+
+  std::optional<Offset> Game::ClosestUnusedBoulder(const Map& map, Offset currentLocation, int)
   {
     auto                 state                = m_player.State();
     NavigationParameters navigationParameters = state.navigationParameters;
@@ -234,9 +249,7 @@ namespace Bot
     auto weights                 = WeightMap(map, navigationParameters, destination);
     auto [dist, boulderPosition] = DistanceMap(weights, currentLocation, destination);
 
-    assert(boulderPosition);
-
-    return *boulderPosition;
+    return boulderPosition;
   }
 
 } // namespace Bot

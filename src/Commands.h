@@ -1,5 +1,6 @@
 #pragma once
 
+#include <format>
 #include <initializer_list>
 #include <queue>
 #include <set>
@@ -106,6 +107,17 @@ namespace Bot
     std::optional<Offset> originalSquare;
   } LeaveSquare;
 
+  struct DropDoorOnEnemy
+  {
+    OffsetSet doorLocations;
+    bool      waiting = true;
+
+    DropDoorOnEnemy(OffsetSet doorLocations_)
+      : doorLocations{std::move(doorLocations_)}
+    {
+    }
+  };
+
   using Command  = std::variant<Explore_t,
                                 VisitTiles,
                                 Terminate_t,
@@ -117,7 +129,8 @@ namespace Bot
                                 ReconsiderUncheckedBoulders_t,
                                 PlaceBoulderOnPressurePlate,
                                 Wait_t,
-                                LeaveSquare_t>;
+                                LeaveSquare_t,
+                                DropDoorOnEnemy>;
   using Commands = std::queue<Command>;
 
 } // namespace Bot

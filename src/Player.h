@@ -53,6 +53,7 @@ namespace Bot
     std::expected<bool, std::string> TerminateRequested();
     std::expected<bool, std::string> Wait();
     std::expected<bool, std::string> LeaveSquare(std::optional<Offset>& originalSquare);
+    std::expected<bool, std::string> Execute(DropDoorOnEnemy& dropDoorOnEnemy);
     std::expected<void, std::string> UpdatePlan();
     std::expected<bool, std::string> DoCommandIfAny();
     bool                             WaitForCommands();

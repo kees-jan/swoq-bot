@@ -224,6 +224,7 @@ namespace Bot
           [&](const Bot::PlaceBoulderOnPressurePlate& place) { return PlaceBoulderOnPressurePlate(place.position, place.color); },
           [&](const Bot::Wait_t&) { return Wait(); },
           [&](Bot::LeaveSquare_t& leaveSquare) { return LeaveSquare(leaveSquare.originalSquare); },
+          [&](Bot::DropDoorOnEnemy& dropDoorOnEnemy) { return Execute(dropDoorOnEnemy); },
         },
         commands->front());
 
@@ -601,6 +602,24 @@ namespace Bot
 
     return ComputePathAndThen(
       GetMap(), [position](Offset p) { return p != position; }, [&](auto& state) { return MoveToDestination(state); });
+  }
+
+  std::expected<bool, std::string> Player::Execute(DropDoorOnEnemy& dropDoorOnEnemy)
+  {
+    auto state = m_state.Get();
+    if(dropDoorOnEnemy.waiting)
+    {
+      auto enemies = state.navigationParameters.enemyLocations | std::views::transform([](auto& pair) { return pair.first; });
+      if(std::ranges::find_first_of(enemies, dropDoorOnEnemy.doorLocations) != std::ranges::end(enemies))
+      {
+        dropDoorOnEnemy.waiting = false;
+        std::optional<Offset> dummy;
+        return LeaveSquare(dummy);
+      }
+      return Wait();
+    }
+
+    return true;
   }
 
   std::expected<void, std::string> Player::Run()

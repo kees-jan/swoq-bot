@@ -29,7 +29,7 @@ namespace Bot
     {
       bool const result = viewTile == Tile::TILE_UNKNOWN || destinationTile == Tile::TILE_UNKNOWN
                           || viewTile == Tile::TILE_BOULDER || destinationTile == Tile::TILE_BOULDER
-                          || destinationTile == viewTile || IsKey(destinationTile) || IsDoor(destinationTile)
+                          || destinationTile == viewTile || IsKey(destinationTile) || IsDoor(destinationTile) || IsKey(viewTile)
                           || viewTile == Tile::TILE_PLAYER || viewTile == Tile::TILE_ENEMY;
 
       if(!result)
@@ -78,6 +78,11 @@ namespace Bot
             break;
           case Tile::TILE_BOULDER:
             result = TileComparisonResult::StuffHasMoved();
+            break;
+          case Tile::TILE_KEY_BLUE:
+          case Tile::TILE_KEY_GREEN:
+          case Tile::TILE_KEY_RED:
+            result = TileComparisonResult::NeedsUpdate();
             break;
           default:
             assert(false);
@@ -308,7 +313,7 @@ namespace Bot
           m_doorData[DoorKeyPlateColor(view[p])].pressurePlatePosition = destination;
         }
         if(view[p] != Tile::TILE_PLAYER && view[p] != Tile::TILE_ENEMY
-           && (me[destination] == Tile::TILE_UNKNOWN || view[p] != Tile::TILE_BOULDER))
+           && (me[destination] == Tile::TILE_UNKNOWN || (view[p] != Tile::TILE_BOULDER && !IsKey(view[p]))))
         {
           me[destination] = view[p];
         }
@@ -414,10 +419,8 @@ namespace Bot
     return std::ranges::any_of(AllDirections, [&](Offset direction) { return me[position + direction] == Tile::TILE_UNKNOWN; });
   }
 
-  std::optional<Offset> ReachablePositionNextTo(const Vector2d<Tile>&       map,
-                                                Offset                      from,
-                                                Offset               to,
-                                                const NavigationParameters& navigationParameters)
+  std::optional<Offset>
+    ReachablePositionNextTo(const Vector2d<Tile>& map, Offset from, Offset to, const NavigationParameters& navigationParameters)
   {
     const auto weights      = WeightMap(map, navigationParameters, to);
     const auto reversedPath = ReversedPath(weights, from, [&](Offset p) { return p == to; });

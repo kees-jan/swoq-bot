@@ -38,7 +38,7 @@ namespace Bot
     std::optional<DoorColor> PressurePlateToActivate(const std::shared_ptr<const Map>& map, int id);
     OffsetSet                BouldersToMove(const std::shared_ptr<const Map>& map, int id);
     Offset                   ClosestUncheckedBoulder(const Map& map, int id);
-    Offset                   ClosestUnusedBoulder(const Map& map, Offset currentLocation, int id);
+    std::optional<Offset>    ClosestUnusedBoulder(const Map& map, Offset currentLocation, int id);
 
     Swoq::GameConnection                   m_gameConnection;
     int                                    m_seed;
