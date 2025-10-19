@@ -45,111 +45,118 @@ namespace Bot
 
       TileComparisonResult result;
 
-      switch(map)
+      if(view == Tile::TILE_ENEMY)
       {
-      case Tile::TILE_UNKNOWN:
-        switch(view)
+        result = TileComparisonResult::IsEnemy();
+      }
+      else
+      {
+        switch(map)
         {
         case Tile::TILE_UNKNOWN:
-          result = TileComparisonResult::NoChange();
+          switch(view)
+          {
+          case Tile::TILE_UNKNOWN:
+            result = TileComparisonResult::NoChange();
+            break;
+          case Tile::TILE_BOULDER:
+            result = TileComparisonResult::NewBoulder();
+            break;
+          default:
+            result = TileComparisonResult::NeedsUpdate();
+            break;
+          }
           break;
-        case Tile::TILE_BOULDER:
-          result = TileComparisonResult::NewBoulder();
-          break;
-        default:
-          result = TileComparisonResult::NeedsUpdate();
-          break;
-        }
-        break;
-      case Tile::TILE_EMPTY:
-        switch(view)
-        {
-        case Tile::TILE_UNKNOWN:
         case Tile::TILE_EMPTY:
-        case Tile::TILE_PLAYER:
-        case Tile::TILE_ENEMY:
+          switch(view)
+          {
+          case Tile::TILE_UNKNOWN:
+          case Tile::TILE_EMPTY:
+          case Tile::TILE_PLAYER:
+          case Tile::TILE_ENEMY:
+            result = TileComparisonResult::NoChange();
+            break;
+          case Tile::TILE_BOULDER:
+            result = TileComparisonResult::StuffHasMoved();
+            break;
+          default:
+            assert(false);
+          }
+          break;
+        case Tile::TILE_WALL:
+          assert(view == Tile::TILE_WALL || view == Tile::TILE_UNKNOWN);
           result = TileComparisonResult::NoChange();
           break;
-        case Tile::TILE_BOULDER:
-          result = TileComparisonResult::StuffHasMoved();
+        case Tile::TILE_EXIT:
+          assert(view == Tile::TILE_EXIT || view == Tile::TILE_UNKNOWN || view == Tile::TILE_PLAYER);
+          result = TileComparisonResult::NoChange();
           break;
-        default:
+        case Tile::TILE_ENEMY:
+        case Tile::TILE_PLAYER:
           assert(false);
-        }
-        break;
-      case Tile::TILE_WALL:
-        assert(view == Tile::TILE_WALL || view == Tile::TILE_UNKNOWN);
-        result = TileComparisonResult::NoChange();
-        break;
-      case Tile::TILE_EXIT:
-        assert(view == Tile::TILE_EXIT || view == Tile::TILE_UNKNOWN || view == Tile::TILE_PLAYER);
-        result = TileComparisonResult::NoChange();
-        break;
-      case Tile::TILE_ENEMY:
-      case Tile::TILE_PLAYER:
-        assert(false);
 
-      case Tile::TILE_DOOR_RED:
-      case Tile::TILE_DOOR_GREEN:
-      case Tile::TILE_DOOR_BLUE:
-      case Tile::TILE_KEY_RED:
-      case Tile::TILE_KEY_GREEN:
-      case Tile::TILE_KEY_BLUE:
-        switch(view)
-        {
-        case Tile::TILE_EMPTY:
+        case Tile::TILE_DOOR_RED:
+        case Tile::TILE_DOOR_GREEN:
+        case Tile::TILE_DOOR_BLUE:
+        case Tile::TILE_KEY_RED:
+        case Tile::TILE_KEY_GREEN:
+        case Tile::TILE_KEY_BLUE:
+          switch(view)
+          {
+          case Tile::TILE_EMPTY:
+          case Tile::TILE_BOULDER:
+            result = TileComparisonResult::StuffHasMoved();
+            break;
+          case Tile::TILE_PLAYER:
+          case Tile::TILE_ENEMY:
+          case Tile::TILE_UNKNOWN:
+            result = TileComparisonResult::NoChange();
+            break;
+          default:
+            assert(view == map);
+            result = TileComparisonResult::NoChange();
+            break;
+          }
+          break;
+        case Tile::TILE_PRESSURE_PLATE_RED:
+        case Tile::TILE_PRESSURE_PLATE_GREEN:
+        case Tile::TILE_PRESSURE_PLATE_BLUE:
+          switch(view)
+          {
+          case Tile::TILE_BOULDER:
+            result = TileComparisonResult::StuffHasMoved();
+            break;
+          case Tile::TILE_PLAYER:
+          case Tile::TILE_ENEMY:
+          case Tile::TILE_UNKNOWN:
+            result = TileComparisonResult::NoChange();
+            break;
+          default:
+            assert(view == map);
+            result = TileComparisonResult::NoChange();
+            break;
+          }
+          break;
         case Tile::TILE_BOULDER:
-          result = TileComparisonResult::StuffHasMoved();
+          switch(view)
+          {
+          case Tile::TILE_UNKNOWN:
+          case Tile::TILE_PLAYER:
+          case Tile::TILE_ENEMY:
+          case Tile::TILE_BOULDER:
+            result = TileComparisonResult::NoChange();
+            break;
+          case Tile::TILE_EMPTY:
+            result = TileComparisonResult::StuffHasMoved();
+            break;
+          default:
+            assert(false);
+          }
           break;
-        case Tile::TILE_PLAYER:
-        case Tile::TILE_ENEMY:
-        case Tile::TILE_UNKNOWN:
-          result = TileComparisonResult::NoChange();
-          break;
-        default:
-          assert(view == map);
-          result = TileComparisonResult::NoChange();
-          break;
-        }
-        break;
-      case Tile::TILE_PRESSURE_PLATE_RED:
-      case Tile::TILE_PRESSURE_PLATE_GREEN:
-      case Tile::TILE_PRESSURE_PLATE_BLUE:
-        switch(view)
-        {
-        case Tile::TILE_BOULDER:
-          result = TileComparisonResult::StuffHasMoved();
-          break;
-        case Tile::TILE_PLAYER:
-        case Tile::TILE_ENEMY:
-        case Tile::TILE_UNKNOWN:
-          result = TileComparisonResult::NoChange();
-          break;
-        default:
-          assert(view == map);
-          result = TileComparisonResult::NoChange();
-          break;
-        }
-        break;
-      case Tile::TILE_BOULDER:
-        switch(view)
-        {
-        case Tile::TILE_UNKNOWN:
-        case Tile::TILE_PLAYER:
-        case Tile::TILE_ENEMY:
-        case Tile::TILE_BOULDER:
-          result = TileComparisonResult::NoChange();
-          break;
-        case Tile::TILE_EMPTY:
-          result = TileComparisonResult::StuffHasMoved();
-          break;
-        default:
+        case Tile::Tile_INT_MAX_SENTINEL_DO_NOT_USE_:
+        case Tile::Tile_INT_MIN_SENTINEL_DO_NOT_USE_:
           assert(false);
         }
-        break;
-      case Tile::Tile_INT_MAX_SENTINEL_DO_NOT_USE_:
-      case Tile::Tile_INT_MIN_SENTINEL_DO_NOT_USE_:
-        assert(false);
       }
 
       if constexpr(Debugging::PrintIncorporatingMovedStuff)
@@ -168,39 +175,20 @@ namespace Bot
                           const NavigationParameters&  navigationParameters,
                           const std::optional<Offset>& destination)
   {
-    const int Inf = Infinity(map);
-    Vector2d  weights(map.Width(), map.Height(), Inf);
-
-    for(const auto offset: OffsetsInRectangle(map.Size()))
-    {
-      auto tile = map[offset];
-      weights[offset] =
-        (tile == Tile::TILE_WALL || (tile == Tile::TILE_BOULDER && navigationParameters.avoidBoulders)
-         || navigationParameters.currentBoulders.contains(offset)
-         || (IsDoor(tile) && navigationParameters.doorParameters.at(DoorKeyPlateColor(tile)).avoidDoor) || IsKey(tile))
-          ? Inf
-          : 1;
-    }
     if(destination)
-    {
-      assert(map.IsInRange(*destination));
-      weights[*destination] = 1;
-    }
-    if constexpr(Debugging::PrintDistanceMap)
-    {
-      std::println("Weight map:");
-      Print(weights);
-    }
-    return weights;
+      return WeightMap(map, navigationParameters, *destination);
+
+    return WeightMap(map, navigationParameters);
   }
+
   Vector2d<int> WeightMap(const Vector2d<Tile>& map, const NavigationParameters& navigationParameters)
   {
-    return WeightMap(map, navigationParameters, std::optional<Offset>());
+    return WeightMap(map, navigationParameters, [](Offset) { return false; });
   }
 
   Vector2d<int> WeightMap(const Vector2d<Tile>& map, const NavigationParameters& navigationParameters, Offset destination)
   {
-    return WeightMap(map, navigationParameters, std::optional<Offset>(destination));
+    return WeightMap(map, navigationParameters, [destination](Offset p) { return p == destination; });
   }
 
   Vector2d<Swoq::Interface::Tile> ViewFromState(int visibility, const Swoq::Interface::PlayerState& state)
@@ -426,8 +414,10 @@ namespace Bot
     return std::ranges::any_of(AllDirections, [&](Offset direction) { return me[position + direction] == Tile::TILE_UNKNOWN; });
   }
 
-  std::optional<Offset>
-    ReachablePositionNextTo(const Vector2d<Tile>& map, Offset from, Offset to, const NavigationParameters& navigationParameters)
+  std::optional<Offset> ReachablePositionNextTo(const Vector2d<Tile>&       map,
+                                                Offset                      from,
+                                                Offset               to,
+                                                const NavigationParameters& navigationParameters)
   {
     const auto weights      = WeightMap(map, navigationParameters, to);
     const auto reversedPath = ReversedPath(weights, from, [&](Offset p) { return p == to; });

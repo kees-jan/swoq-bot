@@ -128,6 +128,7 @@ namespace Bot
     OffsetSet        uncheckedBoulders{};
     OffsetSet        currentBoulders{};
     OffsetSet        usedBoulders{};
+    OffsetMap<int>   enemyLocations{};
   };
 
   struct TileComparisonResult
@@ -135,11 +136,13 @@ namespace Bot
     bool needsUpdate   = false;
     bool newBoulder    = false;
     bool stuffHasMoved = false;
+    bool isEnemy       = false;
 
-    constexpr static TileComparisonResult NoChange() { return TileComparisonResult{}; }
-    constexpr static TileComparisonResult NeedsUpdate() { return TileComparisonResult{true, false, false}; }
-    constexpr static TileComparisonResult NewBoulder() { return TileComparisonResult{true, true, false}; }
-    constexpr static TileComparisonResult StuffHasMoved() { return TileComparisonResult{false, false, true}; }
+    constexpr static TileComparisonResult NoChange() { return {}; }
+    constexpr static TileComparisonResult NeedsUpdate() { return {.needsUpdate = true}; }
+    constexpr static TileComparisonResult NewBoulder() { return {.needsUpdate = true, .newBoulder = true}; }
+    constexpr static TileComparisonResult StuffHasMoved() { return {.stuffHasMoved = true}; }
+    constexpr static TileComparisonResult IsEnemy() { return {.isEnemy = true}; }
   };
 
   struct MapComparisonResult
@@ -148,6 +151,7 @@ namespace Bot
     bool      needsUpdate = false;
     OffsetSet newBoulders;
     bool      stuffHasMoved = false;
+    OffsetSet enemies;
 
     constexpr explicit MapComparisonResult(Offset newMapSize_)
       : newMapSize(newMapSize_)
@@ -167,6 +171,10 @@ namespace Bot
       {
         newBoulders.insert(position);
       }
+      if(tileComparison.isEnemy)
+      {
+        enemies.insert(position);
+      }
     }
   };
 
@@ -177,12 +185,14 @@ namespace Bot
     std::shared_ptr<Map> map;
     OffsetSet            newBoulders;
     bool                 stuffHasMoved = false;
+    OffsetSet            enemies;
 
     MapUpdateResult(std::shared_ptr<Map>  map_,
                     MapComparisonResult&& comparisonResult) // NOLINT(*-rvalue-reference-param-not-moved)
       : map(std::move(map_))
       , newBoulders(std::move(comparisonResult.newBoulders))
       , stuffHasMoved(comparisonResult.stuffHasMoved)
+      , enemies(std::move(comparisonResult.enemies))
     {
     }
   };
@@ -269,6 +279,39 @@ namespace Bot
     }
   }
 
+  constexpr int EnemyDistance = 5;
+
+  template <typename Callable>
+  void AvoidEnemies(const OffsetMap<int>& enemyLocations, Vector2d<int>& weights, Callable&& callable)
+  {
+    for(auto [location, initialPenalty]: enemyLocations)
+    {
+      std::priority_queue<Detail::QueueEntry> pq =
+        Directions | std::views::transform([&](Offset dir) { return Detail::QueueEntry(1, location + dir); })
+        | std::ranges::to<std::priority_queue<Detail::QueueEntry>>();
+      weights[location] = Infinity(weights);
+
+      while(!pq.empty())
+      {
+        auto [d, p] = pq.top();
+        pq.pop();
+
+        int penalty = initialPenalty - 10 * d;
+
+        if(!std::invoke(std::forward<Callable>(callable), p) && d < EnemyDistance && weights[p] < penalty)
+        {
+          weights[p] = penalty;
+          for(const auto& dir: Directions)
+          {
+            const auto np = p + dir;
+            if(weights.IsInRange(np))
+              pq.emplace(d + 1, np);
+          }
+        }
+      }
+    }
+  }
+
   Vector2d<int> WeightMap(const Vector2d<Tile>& map, const NavigationParameters& navigationParameters);
   Vector2d<int> WeightMap(const Vector2d<Tile>& map, const NavigationParameters& navigationParameters, Offset destination);
   Vector2d<int> WeightMap(const Vector2d<Tile>&        map,
@@ -276,7 +319,8 @@ namespace Bot
                           const std::optional<Offset>& destination);
 
   template <typename Callable>
-  Vector2d<int> WeightMap(const Vector2d<Tile>& map, const NavigationParameters& navigationParameters, Callable callable)
+    requires std::is_invocable_v<Callable, Offset>
+  Vector2d<int> WeightMap(const Vector2d<Tile>& map, const NavigationParameters& navigationParameters, Callable&& callable)
   {
     const int Inf = Infinity(map);
     Vector2d  weights(map.Width(), map.Height(), Inf);
@@ -287,12 +331,13 @@ namespace Bot
       weights[offset] =
         (!std::invoke(std::forward<Callable>(callable), offset)
          && (tile == Tile::TILE_WALL || (tile == Tile::TILE_BOULDER && navigationParameters.avoidBoulders)
-             || navigationParameters.currentBoulders.contains(offset)
+             || tile == Tile::TILE_ENEMY || navigationParameters.currentBoulders.contains(offset)
              || (IsDoor(tile) && navigationParameters.doorParameters.at(DoorKeyPlateColor(tile)).avoidDoor) || IsKey(tile)))
           ? Inf
           : 1;
     }
-    if constexpr(Debugging::PrintDistanceMap)
+    AvoidEnemies(navigationParameters.enemyLocations, weights, std::forward<Callable>(callable));
+    if constexpr(Debugging::PrintWeightMap)
     {
       std::println("Weight map:");
       Print(weights);

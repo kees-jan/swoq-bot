@@ -120,6 +120,9 @@ inline std::generator<Offset> OffsetsInRectangle(Offset maxExclusive)
 
 using OffsetSet = std::set<Offset, OffsetLess>;
 
+template <typename V>
+using OffsetMap = std::map<Offset, V, OffsetLess>;
+
 template <>
 struct std::formatter<Offset>
 {

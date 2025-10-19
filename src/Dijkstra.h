@@ -38,7 +38,7 @@ namespace Bot
     };
   } // namespace Detail
 
-  constexpr int Infinity(const Vector2dBase& v) { return 2 * v.Width() * v.Height(); }
+  constexpr int Infinity(const Vector2dBase& v) { return 2 * v.Width() * v.Height() * 100; }
 
   template <typename Callable>
   std::tuple<Vector2d<int>, std::optional<Offset>> DistanceMap(const Vector2d<int>& weights, Offset start, Callable&& c)
@@ -56,7 +56,7 @@ namespace Bot
       pq.pop();
       assert(dist[p] == d);
 
-      if(std::forward<Callable>(c)(p))
+      if(std::invoke(std::forward<Callable>(c), p))
       {
         destination = p;
         break;

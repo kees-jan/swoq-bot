@@ -14,6 +14,9 @@ namespace Bot
 
   namespace
   {
+    constexpr std::chrono::seconds delay(8);
+    constexpr int                  EnemyPenalty = 100;
+
     std::expected<DirectedAction, std::string> ActionFromDirection(Offset direction)
     {
       if(direction == East)
@@ -63,8 +66,6 @@ namespace Bot
              || action == DIRECTED_ACTION_USE_WEST;
     }
 
-    constexpr std::chrono::seconds delay(8);
-
     std::expected<void, std::string> InterpretGameState(GameStatus status)
     {
       switch(status)
@@ -83,6 +84,38 @@ namespace Bot
         std::terminate();
       }
       assert(false);
+    }
+
+    void UpdateEnemyLocations(Offset                pos,
+                              int                   visibility,
+                              OffsetMap<int>&       enemyLocations,
+                              const OffsetSet&      seenEnemies,
+                              const Vector2d<Tile>& view)
+    {
+      const Offset offset(visibility, visibility);
+      assert(view.Size() == 2 * offset + One);
+
+      for(auto it = enemyLocations.begin(); it != enemyLocations.end();)
+      {
+        auto& [location, countDown] = *it;
+        const auto viewPosition     = location - pos + offset;
+
+        if(view.IsInRange(viewPosition) && view[viewPosition] != Tile::TILE_UNKNOWN && view[viewPosition] != Tile::TILE_ENEMY)
+          it = enemyLocations.erase(it);
+        else
+        {
+          --countDown;
+          if(countDown <= 0)
+            it = enemyLocations.erase(it);
+          else
+            ++it;
+        }
+      }
+
+      for(const auto enemy: seenEnemies)
+      {
+        enemyLocations[enemy] = EnemyPenalty;
+      }
     }
 
   } // namespace
@@ -113,6 +146,7 @@ namespace Bot
     auto playerState         = m_state.Lock();
     playerState->position    = pos;
     playerState->currentView = updateResult.stuffHasMoved ? std::optional(view) : std::nullopt;
+    UpdateEnemyLocations(pos, visibility, playerState->navigationParameters.enemyLocations, updateResult.enemies, view);
 
 #ifndef NDEBUG
     bool bad = false;
@@ -135,6 +169,7 @@ namespace Bot
       std::println("currentBoulders: {}", playerState->navigationParameters.currentBoulders);
       std::println("newBoulders:     {}", updateResult.newBoulders);
     }
+    std::println("Enemy locations: {}", playerState->navigationParameters.enemyLocations);
 #endif
 
     if(const auto newMap = updateResult.map; newMap)
@@ -153,6 +188,7 @@ namespace Bot
 
     return false;
   }
+
   std::shared_ptr<const Map> Player::GetMap(bool silently)
   {
     auto state = m_state.Get();
@@ -217,6 +253,10 @@ namespace Bot
       auto   p0state      = m_state.Get();
       Offset p0           = p0state.position;
       characterMap[p0]    = 'a';
+      for(auto& [enemy, countdown]: p0state.navigationParameters.enemyLocations)
+      {
+        characterMap[enemy] = 'E';
+      }
       for(const auto& step: p0state.reversedPath)
       {
         if(characterMap[step] == '.' || characterMap[step] == ' ')
