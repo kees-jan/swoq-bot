@@ -285,35 +285,53 @@ namespace Bot
     }
   }
 
-  constexpr int EnemyDistance = 5;
+  // template <typename Callable>
+  // void AvoidEnemies(const OffsetMap<int>& enemyLocations, Vector2d<int>& weights, Callable&& callable)
+  // {
+  //   for(auto [location, initialPenalty]: enemyLocations)
+  //   {
+  //     std::priority_queue<Detail::QueueEntry> pq =
+  //       Directions | std::views::transform([&](Offset dir) { return Detail::QueueEntry(1, location + dir); })
+  //       | std::ranges::to<std::priority_queue<Detail::QueueEntry>>();
+  //     weights[location] = Infinity(weights);
+  //
+  //     while(!pq.empty())
+  //     {
+  //       auto [d, p] = pq.top();
+  //       pq.pop();
+  //
+  //       int penalty = initialPenalty - 10 * d;
+  //
+  //       if(!std::invoke(std::forward<Callable>(callable), p) && d < EnemyDistance && weights[p] < penalty)
+  //       {
+  //         weights[p] = penalty;
+  //         for(const auto& dir: Directions)
+  //         {
+  //           const auto np = p + dir;
+  //           if(weights.IsInRange(np))
+  //             pq.emplace(d + 1, np);
+  //         }
+  //       }
+  //     }
+  //   }
+  // }
 
   template <typename Callable>
   void AvoidEnemies(const OffsetMap<int>& enemyLocations, Vector2d<int>& weights, Callable&& callable)
   {
-    for(auto [location, initialPenalty]: enemyLocations)
+    for(auto [location, penalty]: enemyLocations)
     {
-      std::priority_queue<Detail::QueueEntry> pq =
-        Directions | std::views::transform([&](Offset dir) { return Detail::QueueEntry(1, location + dir); })
-        | std::ranges::to<std::priority_queue<Detail::QueueEntry>>();
       weights[location] = Infinity(weights);
 
-      while(!pq.empty())
+      auto positions =
+        Directions | std::views::transform([&](Offset o) { return location + o; })
+        | std::views::filter(
+          [&](Offset o)
+          { return weights.IsInRange(o) && !std::invoke(std::forward<Callable>(callable), o) && weights[o] < penalty; });
+
+      for(auto p: positions)
       {
-        auto [d, p] = pq.top();
-        pq.pop();
-
-        int penalty = initialPenalty - 10 * d;
-
-        if(!std::invoke(std::forward<Callable>(callable), p) && d < EnemyDistance && weights[p] < penalty)
-        {
-          weights[p] = penalty;
-          for(const auto& dir: Directions)
-          {
-            const auto np = p + dir;
-            if(weights.IsInRange(np))
-              pq.emplace(d + 1, np);
-          }
-        }
+        weights[p] = penalty;
       }
     }
   }

@@ -15,7 +15,7 @@ namespace Bot
   namespace
   {
     constexpr std::chrono::seconds delay(8);
-    constexpr int                  EnemyPenalty = 100;
+    constexpr int                  EnemyPenalty = 5;
 
     std::expected<DirectedAction, std::string> ActionFromDirection(Offset direction)
     {
