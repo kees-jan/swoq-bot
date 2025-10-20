@@ -106,6 +106,8 @@ namespace Bot
         case Tile::TILE_KEY_RED:
         case Tile::TILE_KEY_GREEN:
         case Tile::TILE_KEY_BLUE:
+        case Tile::TILE_HEALTH:
+        case Tile::TILE_SWORD:
           switch(view)
           {
           case Tile::TILE_EMPTY:

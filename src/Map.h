@@ -48,6 +48,10 @@ namespace Bot
       return 'o';
     case Tile::TILE_ENEMY:
       return 'E';
+    case Tile::TILE_SWORD:
+      return 'S';
+    case Tile::TILE_HEALTH:
+      return 'H';
     case Tile::Tile_INT_MAX_SENTINEL_DO_NOT_USE_:
     case Tile::Tile_INT_MIN_SENTINEL_DO_NOT_USE_:
       break;
@@ -74,6 +78,8 @@ namespace Bot
     case Tile::TILE_PRESSURE_PLATE_BLUE:
     case Tile::TILE_BOULDER:
     case Tile::TILE_ENEMY:
+    case Tile::TILE_HEALTH:
+    case Tile::TILE_SWORD:
       return true;
 
     case Tile::TILE_WALL:

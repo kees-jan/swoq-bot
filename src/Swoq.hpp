@@ -284,6 +284,12 @@ struct std::formatter<Swoq::Interface::Tile>
     case TILE_ENEMY:
       s = "TILE_ENEMY";
       break;
+    case TILE_SWORD:
+      s = "TILE_SWORD";
+      break;
+    case TILE_HEALTH:
+      s = "TILE_HEALTH";
+      break;
     case Tile_INT_MIN_SENTINEL_DO_NOT_USE_:
     case Tile_INT_MAX_SENTINEL_DO_NOT_USE_:
       std::terminate();
