@@ -45,10 +45,10 @@ namespace Bot
     void                             InitializeNavigation();
     std::expected<bool, std::string> VisitTiles(const std::set<Tile>& tiles);
     std::expected<bool, std::string> Visit(Offset destination);
-    std::expected<bool, std::string> OpenDoor(Offset destination, DoorColor color);
-    std::expected<bool, std::string> FetchBoulder(Offset destination);
-    std::expected<bool, std::string> DropBoulder();
-    std::expected<bool, std::string> PlaceBoulderOnPressurePlate(Offset destination, DoorColor color);
+    std::expected<bool, std::string> OpenDoor(Bot::OpenDoor& door);
+    std::expected<bool, std::string> FetchBoulder(Bot::FetchBoulder& fetchBoulder);
+    std::expected<bool, std::string> DropBoulder(Bot::DropBoulder_t& dropBoulder);
+    std::expected<bool, std::string> PlaceBoulderOnPressurePlate(Bot::PlaceBoulderOnPressurePlate& placeBoulder);
     std::expected<bool, std::string> ReconsiderUncheckedBoulders();
     std::expected<bool, std::string> TerminateRequested();
     std::expected<bool, std::string> Wait();
@@ -59,18 +59,17 @@ namespace Bot
     bool                             WaitForCommands();
     void                             PrintMap();
     std::expected<void, std::string> StepAlongPath(ThreadSafeProxy<PlayerState>& state);
-    std::expected<void, std::string> StepAlongPathOrUse(ThreadSafeProxy<PlayerState>& state);
+    std::expected<bool, std::string> StepAlongPathOrUse(ThreadSafeProxy<PlayerState>& state);
     std::expected<bool, std::string> MoveToDestination(ThreadSafeProxy<PlayerState>& state);
-    std::expected<bool, std::string> MoveAlongPathThenOpenDoor(ThreadSafeProxy<PlayerState>& state,
-                                                               Offset                        destination,
-                                                               DoorColor                     color,
-                                                               std::shared_ptr<const Map>    map);
+    std::expected<bool, std::string> MoveToDestination(ThreadSafeProxy<PlayerState>& state, Offset destination);
+    std::expected<bool, std::string> MoveAlongPathThenOpenDoor(ThreadSafeProxy<PlayerState>& state, Bot::OpenDoor& door);
     std::expected<bool, std::string> MoveAlongPathThenUse(ThreadSafeProxy<PlayerState>& state,
                                                           std::shared_ptr<const Map>    map,
                                                           Tile                          expectedTileAfterUse,
                                                           std::string_view              message);
 
     template <typename Predicate, typename Callable>
+      requires std::is_invocable_v<Predicate, Offset> && std::is_invocable_v<Callable, ThreadSafeProxy<PlayerState>&>
     std::expected<bool, std::string>
       ComputePathAndThen(const std::shared_ptr<const Map>& map, Predicate&& predicate, Callable&& callable)
     {
@@ -78,6 +77,7 @@ namespace Bot
     }
 
     template <typename Predicate, typename Callable>
+      requires std::is_invocable_v<Predicate, Offset> && std::is_invocable_v<Callable, ThreadSafeProxy<PlayerState>&>
     std::expected<bool, std::string> ComputePathAndThen(const std::shared_ptr<const Map>& map,
                                                         std::optional<Offset>             destination,
                                                         Predicate&&                       predicate,
@@ -91,6 +91,32 @@ namespace Bot
       return std::forward<Callable>(callable)(state);
     }
 
+    template <typename Callable>
+      requires std::is_invocable_v<Callable>
+    std::expected<bool, std::string>
+      MoveAlongPathThenUse(ThreadSafeProxy<PlayerState>& state, Bot::MoveThenUse& moveThenUse, Callable&& onUse)
+    {
+      if(moveThenUse.done)
+        return true;
+
+      if(!state->reversedPath.empty())
+      {
+        std::expected<bool, std::string> used = StepAlongPathOrUse(state);
+        if(!used)
+        {
+          return std::unexpected(used.error());
+        }
+        if(*used)
+        {
+          moveThenUse.done = true;
+          std::invoke(onUse);
+        }
+
+        return false;
+      }
+
+      return std::unexpected("Destination unreachable");
+    }
 
     int                                     m_id;
     GameCallbacks&                          m_callbacks;

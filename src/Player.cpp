@@ -217,11 +217,11 @@ namespace Bot
           [&](Terminate_t) { return TerminateRequested(); },
           [&](const Bot::Visit& visit) { return Visit(visit.position); },
           [&](const Bot::FetchKey& key) { return Visit(key.position); },
-          [&](const Bot::OpenDoor& door) { return OpenDoor(door.position, door.color); },
-          [&](const Bot::FetchBoulder& boulder) { return FetchBoulder(boulder.position); },
-          [&](const Bot::DropBoulder_t&) { return DropBoulder(); },
+          [&](Bot::OpenDoor& door) { return OpenDoor(door); },
+          [&](Bot::FetchBoulder& boulder) { return FetchBoulder(boulder); },
+          [&](Bot::DropBoulder_t& dropBoulder) { return DropBoulder(dropBoulder); },
           [&](const Bot::ReconsiderUncheckedBoulders_t&) { return ReconsiderUncheckedBoulders(); },
-          [&](const Bot::PlaceBoulderOnPressurePlate& place) { return PlaceBoulderOnPressurePlate(place.position, place.color); },
+          [&](Bot::PlaceBoulderOnPressurePlate& place) { return PlaceBoulderOnPressurePlate(place); },
           [&](const Bot::Wait_t&) { return Wait(); },
           [&](Bot::LeaveSquare_t& leaveSquare) { return LeaveSquare(leaveSquare.originalSquare); },
           [&](Bot::DropDoorOnEnemy& dropDoorOnEnemy) { return Execute(dropDoorOnEnemy); },
@@ -365,6 +365,27 @@ namespace Bot
     return {};
   }
 
+  std::expected<bool, std::string> Player::StepAlongPathOrUse(ThreadSafeProxy<PlayerState>& state)
+  {
+    auto direction = state->reversedPath.back() - state->position;
+    bool use       = state->pathLength == 1;
+    auto action    = use ? UseFromDirection(direction) : ActionFromDirection(direction);
+    if(!action)
+    {
+      return std::unexpected(action.error());
+    }
+
+    std::println("Player: {}, tick: {}, action: {} because position is {} and next is {}",
+                 m_id,
+                 m_game->state().tick(),
+                 *action,
+                 state->position,
+                 state->reversedPath.back());
+
+    state->next = *action;
+    return use;
+  }
+
   std::expected<bool, std::string> Player::MoveToDestination(ThreadSafeProxy<PlayerState>& state)
   {
     if(!state->reversedPath.empty())
@@ -377,6 +398,25 @@ namespace Bot
     }
 
     return state->pathLength == 0;
+  }
+
+  std::expected<bool, std::string> Player::MoveToDestination(ThreadSafeProxy<PlayerState>& state, Offset destination)
+  {
+    if(!state->reversedPath.empty())
+    {
+      auto result = StepAlongPath(state);
+      if(!result)
+      {
+        return std::unexpected(result.error());
+      }
+
+      return false;
+    }
+
+    if(state->position == destination)
+      return true;
+
+    return std::unexpected("Destination unreachable");
   }
 
   std::expected<bool, std::string> Player::VisitTiles(const std::set<Tile>& tiles)
@@ -395,51 +435,19 @@ namespace Bot
       map,
       destination,
       [destination](Offset p) { return p == destination; },
-      [&](auto& state) { return MoveToDestination(state); });
+      [&](auto& state) { return MoveToDestination(state, destination); });
   }
 
-  std::expected<void, std::string> Player::StepAlongPathOrUse(ThreadSafeProxy<PlayerState>& state)
+
+  std::expected<bool, std::string> Player::MoveAlongPathThenOpenDoor(ThreadSafeProxy<PlayerState>& state, Bot::OpenDoor& door)
   {
-    auto direction = state->reversedPath.back() - state->position;
-    auto action    = state->pathLength == 1 ? UseFromDirection(direction) : ActionFromDirection(direction);
-    if(!action)
-    {
-      return std::unexpected(action.error());
-    }
-
-    std::println("Player: {}, tick: {}, action: {} because position is {} and next is {}",
-                 m_id,
-                 m_game->state().tick(),
-                 *action,
-                 state->position,
-                 state->reversedPath.back());
-
-    state->next = *action;
-    return {};
-  }
-
-  std::expected<bool, std::string> Player::MoveAlongPathThenOpenDoor(ThreadSafeProxy<PlayerState>& state,
-                                                                     Offset                        destination,
-                                                                     DoorColor                     color,
-                                                                     std::shared_ptr<const Map>    map)
-  {
-    if(!state->reversedPath.empty())
-    {
-      std::expected<void, std::string> result = StepAlongPathOrUse(state);
-      if(!result)
-      {
-        return std::unexpected(result.error());
-      }
-    }
-
-    if((*map)[destination] == Tile::TILE_EMPTY)
-    {
-      std::println("Player {}: Opened door of color {}", m_id, color);
-      state->navigationParameters.doorParameters.at(color).avoidDoor = false;
-      return true;
-    }
-
-    return false;
+    return MoveAlongPathThenUse(state,
+                                door,
+                                [&]()
+                                {
+                                  std::println("Player {}: Opened door of color {}", m_id, door.color);
+                                  state->navigationParameters.doorParameters.at(door.color).avoidDoor = false;
+                                });
   }
 
   std::expected<bool, std::string> Player::MoveAlongPathThenUse(ThreadSafeProxy<PlayerState>& state,
@@ -456,53 +464,54 @@ namespace Bot
         return true;
       }
 
-      std::expected<void, std::string> result = StepAlongPathOrUse(state);
-      if(!result)
+      std::expected<bool, std::string> used = StepAlongPathOrUse(state);
+      if(!used)
       {
-        return std::unexpected(result.error());
+        return std::unexpected(used.error());
       }
     }
     else
     {
-      return std::unexpected("Destination unreachable?");
+      return std::unexpected("Destination unreachable");
     }
 
     return false;
   }
 
-  std::expected<bool, std::string> Player::OpenDoor(Offset destination, DoorColor color)
+  std::expected<bool, std::string> Player::OpenDoor(Bot::OpenDoor& door)
   {
     auto map = GetMap();
     return ComputePathAndThen(
       map,
-      destination,
-      [destination](Offset p) { return p == destination; },
-      [&](auto& state) { return MoveAlongPathThenOpenDoor(state, destination, color, map); });
+      door.position,
+      [&](Offset p) { return p == door.position; },
+      [&](auto& state) { return MoveAlongPathThenOpenDoor(state, door); });
   }
 
-  std::expected<bool, std::string> Player::FetchBoulder(Offset destination)
+  std::expected<bool, std::string> Player::FetchBoulder(Bot::FetchBoulder& fetchBoulder)
   {
-    auto map = GetMap();
+    auto map             = GetMap();
+    auto boulderPosition = fetchBoulder.position;
     return ComputePathAndThen(
       map,
-      destination,
-      [destination](Offset p) { return p == destination; },
+      boulderPosition,
+      [&](Offset p) { return p == boulderPosition; },
       [&](auto& state)
       {
-        auto moveResult = MoveAlongPathThenUse(state, map, Tile::TILE_EMPTY, "Fetch boulder");
-        if(moveResult && !*moveResult && IsUse(state->next))
-        {
-          std::println("FetchBoulder: About to pick up boulder at {}", destination);
-          state->navigationParameters.uncheckedBoulders.erase(destination);
-          state->navigationParameters.usedBoulders.erase(destination);
-          auto eraseCount = state->navigationParameters.currentBoulders.erase(destination);
-          assert(eraseCount == 1);
-        }
-        return moveResult;
+        return MoveAlongPathThenUse(state,
+                                    fetchBoulder,
+                                    [&]()
+                                    {
+                                      std::println("FetchBoulder: About to pick up boulder at {}", boulderPosition);
+                                      state->navigationParameters.uncheckedBoulders.erase(boulderPosition);
+                                      state->navigationParameters.usedBoulders.erase(boulderPosition);
+                                      auto eraseCount = state->navigationParameters.currentBoulders.erase(boulderPosition);
+                                      assert(eraseCount == 1);
+                                    });
       });
   }
 
-  std::expected<bool, std::string> Player::DropBoulder()
+  std::expected<bool, std::string> Player::DropBoulder(Bot::DropBoulder_t& dropBoulder)
   {
     auto map        = GetMap();
     auto myLocation = m_state.Get().position;
@@ -511,56 +520,37 @@ namespace Bot
       [&](Offset p) { return (*map)[p] == Tile::TILE_EMPTY && map->IsGoodBoulder(p) && p != myLocation; },
       [&](auto& state) -> std::expected<bool, std::string>
       {
-        if(m_game->state().playerstate().inventory() == Swoq::Interface::INVENTORY_NONE)
-        {
-          return true;
-        }
-        auto moveResult = MoveAlongPathThenUse(state, map, Tile::TILE_BOULDER, "Drop boulder");
-        if(moveResult)
-        {
-          if(IsUse(state->next))
-          {
-            auto destination = state->reversedPath.front();
-            std::println("DropBoulder: About to drop boulder at {}", destination);
-            state->navigationParameters.currentBoulders.insert(destination);
-          }
-          else
-          {
-            std::println("DropBoulder: Still carrying boulder");
-          }
-        }
-        return moveResult;
+        return MoveAlongPathThenUse(state,
+                                    dropBoulder,
+                                    [&]()
+                                    {
+                                      auto destination = state->reversedPath.front();
+                                      std::println("DropBoulder: About to drop boulder at {}", destination);
+                                      state->navigationParameters.currentBoulders.insert(destination);
+                                    });
       });
   }
 
-  std::expected<bool, std::string> Player::PlaceBoulderOnPressurePlate(Offset destination, DoorColor color)
+  std::expected<bool, std::string> Player::PlaceBoulderOnPressurePlate(Bot::PlaceBoulderOnPressurePlate& placeBoulder)
   {
-    auto map = GetMap();
+    auto map                   = GetMap();
+    auto pressurePlatePosition = placeBoulder.position;
     return ComputePathAndThen(
       map,
-      [&](Offset p) { return p == destination; },
+      pressurePlatePosition,
+      [&](Offset p) { return p == pressurePlatePosition; },
       [&](auto& state) -> std::expected<bool, std::string>
       {
-        if(m_game->state().playerstate().inventory() == Swoq::Interface::INVENTORY_NONE)
-        {
-          return true;
-        }
-        auto moveResult = MoveAlongPathThenUse(state, map, Tile::TILE_BOULDER, "Place boulder on pressureplate");
-        if(moveResult)
-        {
-          if(IsUse(state->next))
-          {
-            std::println("PlaceBoulderOnPressurePlate: About to drop boulder at {}", destination);
-            state->navigationParameters.currentBoulders.insert(destination);
-            state->navigationParameters.usedBoulders.insert(destination);
-            state->navigationParameters.doorParameters.at(color).avoidDoor = false;
-          }
-          else
-          {
-            std::println("PlaceBoulderOnPressurePlate: Still carrying boulder");
-          }
-        }
-        return moveResult;
+        return MoveAlongPathThenUse(state,
+                                    placeBoulder,
+                                    [&]()
+                                    {
+                                      std::println("PlaceBoulderOnPressurePlate: About to drop boulder at {}",
+                                                   pressurePlatePosition);
+                                      state->navigationParameters.currentBoulders.insert(pressurePlatePosition);
+                                      state->navigationParameters.usedBoulders.insert(pressurePlatePosition);
+                                      state->navigationParameters.doorParameters.at(placeBoulder.color).avoidDoor = false;
+                                    });
       });
   }
 

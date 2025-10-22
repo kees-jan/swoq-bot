@@ -317,6 +317,7 @@ namespace Bot
   // }
 
   template <typename Callable>
+    requires std::is_invocable_v<Callable, Offset>
   void AvoidEnemies(const OffsetMap<int>& enemyLocations, Vector2d<int>& weights, Callable&& callable)
   {
     for(auto [location, penalty]: enemyLocations)
@@ -373,6 +374,7 @@ namespace Bot
     ReachablePositionNextTo(const Vector2d<Tile>& map, Offset from, Offset to, const NavigationParameters& navigationParameters);
 
   template <typename Callable>
+    requires std::is_invocable_v<Callable, Offset>
   std::optional<Offset> ClosestReachable(const Vector2d<Tile>&       map,
                                          Offset                      from,
                                          const NavigationParameters& navigationParameters,

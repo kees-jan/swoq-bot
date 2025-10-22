@@ -3,7 +3,7 @@
 namespace Bot::Debugging
 {
   constexpr bool PrintGameMaps                = false;
-  constexpr bool PrintPlayerMaps              = true;
+  constexpr bool PrintPlayerMaps              = false;
   constexpr bool PrintPlayerMapsAsTiles       = false;
   constexpr bool PrintIncorporatingMovedStuff = false;
   constexpr bool PrintFindingBoulderLocation  = false;

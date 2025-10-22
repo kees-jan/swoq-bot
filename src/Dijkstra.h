@@ -41,6 +41,7 @@ namespace Bot
   constexpr int Infinity(const Vector2dBase& v) { return 2 * v.Width() * v.Height() * 100; }
 
   template <typename Callable>
+    requires std::is_invocable_v<Callable, Offset>
   std::tuple<Vector2d<int>, std::optional<Offset>> DistanceMap(const Vector2d<int>& weights, Offset start, Callable&& c)
   {
     assert(weights.IsInRange(start));
@@ -91,6 +92,7 @@ namespace Bot
   }
 
   template <typename Callable>
+    requires std::is_invocable_v<Callable, Offset>
   std::vector<Offset> ReversedPath(const Vector2d<int>& weights, Offset start, Callable&& c)
   {
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <expected>
 #include <format>
 #include <map>
 #include <optional>
@@ -81,5 +82,17 @@ struct std::formatter<std::pair<Left, Right>>
   auto           format(const std::pair<Left, Right>& item, std::format_context& ctx) const
   {
     return std::format_to(ctx.out(), "{{{}, {}}}", item.first, item.second);
+  }
+};
+
+template <typename T, typename E>
+struct std::formatter<std::expected<T, E>>
+{
+  constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin(); }
+  auto           format(const std::expected<T, E>& item, std::format_context& ctx) const
+  {
+    if(item.has_value())
+      return std::format_to(ctx.out(), "{}", item.value());
+    return std::format_to(ctx.out(), "(error: {})", item.error());
   }
 };

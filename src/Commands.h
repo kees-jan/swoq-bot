@@ -14,6 +14,21 @@ namespace Bot
 {
   using Swoq::Interface::Tile;
 
+  struct MoveThenUse
+  {
+    bool done = false;
+  };
+
+  struct MoveToGoalThenUse : public MoveThenUse
+  {
+    constexpr explicit MoveToGoalThenUse(Offset position_)
+      : position{position_}
+    {
+    }
+
+    Offset position;
+  };
+
   constexpr struct Explore_t
   {
   } Explore;
@@ -22,7 +37,7 @@ namespace Bot
   {
   } Terminate;
 
-  constexpr struct DropBoulder_t
+  constexpr struct DropBoulder_t : public MoveThenUse
   {
   } DropBoulder;
 
@@ -50,27 +65,25 @@ namespace Bot
     Offset position;
   };
 
-  struct OpenDoor
+  struct OpenDoor : public MoveToGoalThenUse
   {
     constexpr OpenDoor(Offset doorPosition, DoorColor color_)
-      : position{doorPosition}
+      : MoveToGoalThenUse(doorPosition)
       , color{color_}
     {
     }
 
-    Offset    position;
     DoorColor color;
   };
 
-  struct PlaceBoulderOnPressurePlate
+  struct PlaceBoulderOnPressurePlate : public MoveToGoalThenUse
   {
     constexpr PlaceBoulderOnPressurePlate(Offset pressurePlatePosition, DoorColor color_)
-      : position{pressurePlatePosition}
+      : MoveToGoalThenUse(pressurePlatePosition)
       , color{color_}
     {
     }
 
-    Offset    position;
     DoorColor color;
   };
 
@@ -84,14 +97,9 @@ namespace Bot
     Offset position;
   };
 
-  struct FetchBoulder
+  struct FetchBoulder : public MoveToGoalThenUse
   {
-    constexpr FetchBoulder(Offset keyPosition)
-      : position{keyPosition}
-    {
-    }
-
-    Offset position;
+    using MoveToGoalThenUse::MoveToGoalThenUse;
   };
 
   constexpr struct ReconsiderUncheckedBoulders_t

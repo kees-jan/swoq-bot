@@ -39,7 +39,7 @@ TEST(Dijkstra, ChoosesCheaperDetour)
   auto                dist = DistanceMap(weights, Offset(0, 0));
   // Expected distances row-major: 0,100,4, 1,2,3
   EXPECT_EQ(dist[0], 0);
-  EXPECT_EQ(dist[1], Bot::Infinity(weights));
+  EXPECT_EQ(dist[1], 100);
   EXPECT_EQ(dist[2], 4);
   EXPECT_EQ(dist[3], 1);
   EXPECT_EQ(dist[4], 2);

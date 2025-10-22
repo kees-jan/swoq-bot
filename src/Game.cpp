@@ -128,8 +128,12 @@ namespace Bot
           }
           else if(doorToOpen)
           {
-            std::println("Player {}: Planning to open {} door", id, *doorToOpen);
-            auto     doorData = map->DoorData().at(*doorToOpen);
+            auto doorData = map->DoorData().at(*doorToOpen);
+            std::println("Player {}: Planning to open {} door. Key is at {}, door is at {}",
+                         id,
+                         *doorToOpen,
+                         doorData.keyPosition,
+                         doorData.doorPosition);
             Commands commands;
             commands.emplace(FetchKey(*doorData.keyPosition));
             commands.emplace(OpenDoor(*doorData.doorPosition.begin(), *doorToOpen));
