@@ -7,6 +7,15 @@
 
 namespace Bot
 {
+  namespace
+  {
+    constexpr bool IsEngagingEnemy(Game::PlayerState playerState)
+    {
+      return playerState == Game::PlayerState::PeekingBelowEnemy || playerState == Game::PlayerState::AttackingEnemy;
+    }
+  } // namespace
+
+
   Game::Game(const Swoq::GameConnection& gameConnection, std::unique_ptr<Swoq::Game> game, std::optional<int> expectedLevel)
     : m_gameConnection(gameConnection)
     , m_seed(game->seed())
@@ -42,7 +51,39 @@ namespace Bot
     }
   }
 
-  void Game::MapUpdated(int) {}
+  void Game::MapUpdated(int id)
+  {
+    std::println("Game: Player {} updated the map while doing  {}", id, m_playerState);
+
+    auto  p0state        = m_player.State();
+    auto  map            = m_map.Get();
+    auto& enemiesInSight = p0state.navigationParameters.enemiesInSight;
+    auto  unknownSquares = enemiesInSight
+                          | std::views::filter([&, map = *map](Offset pos) { return map[pos] == Tile::TILE_UNKNOWN; })
+                          | std::ranges::to<OffsetSet>();
+
+    if(!IsEngagingEnemy(m_playerState))
+    {
+      if(p0state.hasSword && !enemiesInSight.empty())
+      {
+        std::println("Player {}: Enemies in sight at {}. Attacking", id, enemiesInSight);
+        Commands commands;
+        commands.emplace(Attack);
+        m_player.SetCommands(commands);
+
+        m_playerState = PlayerState::AttackingEnemy;
+      }
+      else if(!unknownSquares.empty())
+      {
+        std::println("Player {}: Enemies are obscuring {}. Luring them away", id, unknownSquares);
+        Commands commands;
+        commands.emplace(PeekUnderEnemies(unknownSquares));
+        m_player.SetCommands(commands);
+
+        m_playerState = PlayerState::PeekingBelowEnemy;
+      }
+    }
+  }
 
   void Game::PrintMap()
   {

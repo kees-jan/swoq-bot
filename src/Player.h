@@ -24,6 +24,7 @@ namespace Bot
     bool                                  terminateRequested = false;
     NavigationParameters                  navigationParameters;
     std::optional<Vector2d<Tile>>         currentView;
+    bool                                  hasSword = false;
   };
 
   class Player
@@ -54,6 +55,7 @@ namespace Bot
     std::expected<bool, std::string> Wait();
     std::expected<bool, std::string> LeaveSquare(std::optional<Offset>& originalSquare);
     std::expected<bool, std::string> Execute(DropDoorOnEnemy& dropDoorOnEnemy);
+    std::expected<bool, std::string> PeekUnderEnemies(const OffsetSet& tileLocations);
     std::expected<void, std::string> UpdatePlan();
     std::expected<bool, std::string> DoCommandIfAny();
     bool                             WaitForCommands();

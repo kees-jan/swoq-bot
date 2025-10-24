@@ -37,6 +37,10 @@ namespace Bot
   {
   } Terminate;
 
+  constexpr struct Attack_t
+  {
+  } Attack;
+
   constexpr struct DropBoulder_t : public MoveThenUse
   {
   } DropBoulder;
@@ -126,6 +130,16 @@ namespace Bot
     }
   };
 
+  struct PeekUnderEnemies
+  {
+    OffsetSet tileLocations;
+
+    PeekUnderEnemies(OffsetSet tileLocations_)
+      : tileLocations{std::move(tileLocations_)}
+    {
+    }
+  };
+
   using Command  = std::variant<Explore_t,
                                 VisitTiles,
                                 Terminate_t,
@@ -138,7 +152,9 @@ namespace Bot
                                 PlaceBoulderOnPressurePlate,
                                 Wait_t,
                                 LeaveSquare_t,
-                                DropDoorOnEnemy>;
+                                DropDoorOnEnemy,
+                                Attack_t,
+                                PeekUnderEnemies>;
   using Commands = std::queue<Command>;
 
 } // namespace Bot

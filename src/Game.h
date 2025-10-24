@@ -21,7 +21,9 @@ namespace Bot
       ReconsideringUncheckedBoulders,
       MovingBoulder,
       MovingToExit,
-      Terminating
+      Terminating,
+      PeekingBelowEnemy,
+      AttackingEnemy,
     };
 
     Game(const Swoq::GameConnection& gameConnection, std::unique_ptr<Swoq::Game> game, std::optional<int> expectedLevel);
@@ -82,6 +84,12 @@ struct std::formatter<Bot::Game::PlayerState>
       break;
     case Terminating:
       s = "Terminating";
+      break;
+    case PeekingBelowEnemy:
+      s = "PeekingBelowEnemy";
+      break;
+    case AttackingEnemy:
+      s = "AttackingEnemy";
       break;
     }
 

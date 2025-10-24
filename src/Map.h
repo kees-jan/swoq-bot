@@ -135,6 +135,7 @@ namespace Bot
     OffsetSet        currentBoulders{};
     OffsetSet        usedBoulders{};
     OffsetMap<int>   enemyLocations{};
+    OffsetSet        enemiesInSight{};
   };
 
   struct TileComparisonResult
@@ -322,7 +323,8 @@ namespace Bot
   {
     for(auto [location, penalty]: enemyLocations)
     {
-      weights[location] = Infinity(weights);
+      if(!std::invoke(std::forward<Callable>(callable), location))
+        weights[location] = Infinity(weights);
 
       auto positions =
         Directions | std::views::transform([&](Offset o) { return location + o; })

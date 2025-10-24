@@ -147,6 +147,8 @@ namespace Bot
     playerState->position    = pos;
     playerState->currentView = updateResult.stuffHasMoved ? std::optional(view) : std::nullopt;
     UpdateEnemyLocations(pos, visibility, playerState->navigationParameters.enemyLocations, updateResult.enemies, view);
+    playerState->navigationParameters.enemiesInSight = updateResult.enemies;
+    playerState->hasSword                            = state.hassword(); // Not really map related :-(
 
 #ifndef NDEBUG
     bool bad = false;
@@ -216,15 +218,17 @@ namespace Bot
           [&](const Bot::VisitTiles& visitTiles) { return VisitTiles(visitTiles.tiles); },
           [&](Terminate_t) { return TerminateRequested(); },
           [&](const Bot::Visit& visit) { return Visit(visit.position); },
-          [&](const Bot::FetchKey& key) { return Visit(key.position); },
+          [&](const FetchKey& key) { return Visit(key.position); },
           [&](Bot::OpenDoor& door) { return OpenDoor(door); },
           [&](Bot::FetchBoulder& boulder) { return FetchBoulder(boulder); },
-          [&](Bot::DropBoulder_t& dropBoulder) { return DropBoulder(dropBoulder); },
-          [&](const Bot::ReconsiderUncheckedBoulders_t&) { return ReconsiderUncheckedBoulders(); },
+          [&](DropBoulder_t& dropBoulder) { return DropBoulder(dropBoulder); },
+          [&](const ReconsiderUncheckedBoulders_t&) { return ReconsiderUncheckedBoulders(); },
           [&](Bot::PlaceBoulderOnPressurePlate& place) { return PlaceBoulderOnPressurePlate(place); },
-          [&](const Bot::Wait_t&) { return Wait(); },
-          [&](Bot::LeaveSquare_t& leaveSquare) { return LeaveSquare(leaveSquare.originalSquare); },
-          [&](Bot::DropDoorOnEnemy& dropDoorOnEnemy) { return Execute(dropDoorOnEnemy); },
+          [&](const Wait_t&) { return Wait(); },
+          [&](LeaveSquare_t& leaveSquare) { return LeaveSquare(leaveSquare.originalSquare); },
+          [&](DropDoorOnEnemy& dropDoorOnEnemy) { return Execute(dropDoorOnEnemy); },
+          [&](const Bot::PeekUnderEnemies& peekUnderEnemies) { return PeekUnderEnemies(peekUnderEnemies.tileLocations); },
+          [&](const Attack_t&) { return VisitTiles({Tile::TILE_ENEMY}); },
         },
         commands->front());
 
@@ -612,6 +616,34 @@ namespace Bot
     return true;
   }
 
+  std::expected<bool, std::string> Player::PeekUnderEnemies(const OffsetSet& tileLocations)
+  {
+
+    auto map       = GetMap();
+    auto remaining = tileLocations | std::views::filter([&](Offset location) { return (*map)[location] == Tile::TILE_UNKNOWN; })
+                     | std::ranges::to<OffsetSet>();
+
+    auto state                = m_state.Get();
+    auto destinationPredicate = [&](Offset p) { return remaining.contains(p); };
+    auto weights              = WeightMap(*map, state.navigationParameters, destinationPredicate);
+
+    auto [dist, destination] = DistanceMap(weights, state.position, destinationPredicate);
+    if(!destination)
+      return true;
+
+    auto distance = dist[*destination];
+
+    if(state.navigationParameters.enemyLocations.contains(*destination))
+    {
+      if(distance >= 3)
+        return Visit(*destination);
+
+      return Wait();
+    }
+
+    return Visit(*destination);
+  }
+
   std::expected<void, std::string> Player::Run()
   {
     // Game loop
@@ -625,7 +657,7 @@ namespace Bot
         InitializeLevel();
       }
 
-      if(UpdateMap())
+      if(UpdateMap() || !m_state.Get().navigationParameters.enemiesInSight.empty())
       {
         m_callbacks.MapUpdated(m_id);
       }
