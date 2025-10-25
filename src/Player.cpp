@@ -214,7 +214,7 @@ namespace Bot
     {
       result = std::visit(
         Visitor{
-          [&](Explore_t) { return VisitTiles({Tile::TILE_UNKNOWN}); },
+          [&](Explore_t) { return Explore(); },
           [&](const Bot::VisitTiles& visitTiles) { return VisitTiles(visitTiles.tiles); },
           [&](Terminate_t) { return TerminateRequested(); },
           [&](const Bot::Visit& visit) { return Visit(visit.position); },
@@ -642,6 +642,18 @@ namespace Bot
     }
 
     return Visit(*destination);
+  }
+
+  std::expected<bool, std::string> Player::Explore()
+  {
+    std::set tiles{Tile::TILE_UNKNOWN, Tile::TILE_HEALTH};
+    auto     state = m_state.Get();
+    if(!state.hasSword)
+      tiles.insert(Tile::TILE_SWORD);
+
+    std::println("Explore: Moving towards {}", tiles);
+
+    return VisitTiles(tiles);
   }
 
   std::expected<void, std::string> Player::Run()
