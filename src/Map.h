@@ -8,8 +8,8 @@
 
 namespace Bot
 {
-  Vector2d<Tile>    ViewFromState(int visibility, const Swoq::Interface::PlayerState& state);
-  void              Print(const Vector2d<Tile>& tiles);
+  Vector2d<Tile> ViewFromState(int visibility, const Swoq::Interface::PlayerState& state);
+  void Print(const Vector2d<Tile>& tiles);
   std::vector<Tile> NewMapData(const Vector2d<Tile>& other, Offset newSize);
 
   constexpr char CharFromTile(Tile tile)
@@ -72,7 +72,7 @@ namespace Bot
   {
     std::optional<Offset> keyPosition;
     std::optional<Offset> pressurePlatePosition;
-    OffsetSet             doorPosition;
+    OffsetSet doorPosition;
 
     bool operator==(const DoorData& other) const
     {
@@ -90,27 +90,27 @@ namespace Bot
   };
 
   using DoorParameterMap = std::map<DoorColor, DoorParameters>;
-  using DoorOpenMap      = std::map<DoorColor, bool>;
+  using DoorOpenMap = std::map<DoorColor, bool>;
 
   struct NavigationParameters
   {
-    DoorParameterMap doorParameters{DoorColors
-                                    | std::views::transform([](auto color) { return std::pair(color, DoorParameters{}); })
-                                    | std::ranges::to<DoorParameterMap>()};
-    bool             avoidBoulders = false;
-    OffsetSet        uncheckedBoulders{};
-    OffsetSet        currentBoulders{};
-    OffsetSet        usedBoulders{};
-    OffsetMap<int>   enemyLocations{};
-    OffsetSet        enemiesInSight{};
+    DoorParameterMap doorParameters{
+      DoorColors | std::views::transform([](auto color) { return std::pair(color, DoorParameters{}); })
+      | std::ranges::to<DoorParameterMap>()};
+    bool avoidBoulders = false;
+    OffsetSet uncheckedBoulders{};
+    OffsetSet currentBoulders{};
+    OffsetSet usedBoulders{};
+    OffsetMap<int> enemyLocations{};
+    OffsetSet enemiesInSight{};
   };
 
   struct TileComparisonResult
   {
-    bool needsUpdate   = false;
-    bool newBoulder    = false;
+    bool needsUpdate = false;
+    bool newBoulder = false;
     bool stuffHasMoved = false;
-    bool isEnemy       = false;
+    bool isEnemy = false;
 
     constexpr static TileComparisonResult NoChange() { return {}; }
     constexpr static TileComparisonResult NeedsUpdate() { return {.needsUpdate = true}; }
@@ -121,10 +121,10 @@ namespace Bot
 
   struct MapComparisonResult
   {
-    Offset    newMapSize;
-    bool      needsUpdate = false;
+    Offset newMapSize;
+    bool needsUpdate = false;
     OffsetSet newBoulders;
-    bool      stuffHasMoved = false;
+    bool stuffHasMoved = false;
     OffsetSet enemies;
 
     constexpr explicit MapComparisonResult(Offset newMapSize_)
@@ -157,12 +157,13 @@ namespace Bot
   struct MapUpdateResult
   {
     std::shared_ptr<Map> map;
-    OffsetSet            newBoulders;
-    bool                 stuffHasMoved = false;
-    OffsetSet            enemies;
+    OffsetSet newBoulders;
+    bool stuffHasMoved = false;
+    OffsetSet enemies;
 
-    MapUpdateResult(std::shared_ptr<Map>  map_,
-                    MapComparisonResult&& comparisonResult) // NOLINT(*-rvalue-reference-param-not-moved)
+    MapUpdateResult(
+      std::shared_ptr<Map> map_,
+      MapComparisonResult&& comparisonResult) // NOLINT(*-rvalue-reference-param-not-moved)
       : map(std::move(map_))
       , newBoulders(std::move(comparisonResult.newBoulders))
       , stuffHasMoved(comparisonResult.stuffHasMoved)
@@ -200,19 +201,20 @@ namespace Bot
       IncludeLocalView(const Vector2d<Tile>& view, const MapViewCoordinateConverter& convert, bool silently = false) const;
 
     [[nodiscard]] std::optional<Offset> Exit() const { return m_exit; }
-    [[nodiscard]] const DoorMap&        DoorData() const;
-    [[nodiscard]] bool                  IsBadBoulder(Offset position) const;
-    [[nodiscard]] bool                  IsGoodBoulder(Offset position) const;
+    [[nodiscard]] const DoorMap& DoorData() const;
+    [[nodiscard]] bool IsBadBoulder(Offset position) const;
+    [[nodiscard]] bool IsGoodBoulder(Offset position) const;
 
   private:
     [[nodiscard]] MapComparisonResult Compare(const Vector2d<Tile>& view, const MapViewCoordinateConverter& convert) const;
-    void                              Update(const Vector2d<Tile>& view, const MapViewCoordinateConverter& convert);
+    void Update(const Vector2d<Tile>& view, const MapViewCoordinateConverter& convert);
     void IncludeLocalView(const Vector2d<Tile>& view, const MapViewCoordinateConverter& convert, bool silently);
     void HandleUnknownBoulder(Offset playerPosition, Offset boulderPosition);
 
     std::optional<Offset> m_exit;
-    DoorMap m_doorData{DoorColors | std::views::transform([](auto color) { return std::pair(color, Bot::DoorData{}); })
-                       | std::ranges::to<DoorMap>()};
+    DoorMap m_doorData{
+      DoorColors | std::views::transform([](auto color) { return std::pair(color, Bot::DoorData{}); })
+      | std::ranges::to<DoorMap>()};
   };
 
   constexpr Tile DoorForColor(DoorColor color)
@@ -311,16 +313,17 @@ namespace Bot
 
   Vector2d<int> WeightMap(const Vector2d<Tile>& map, const NavigationParameters& navigationParameters);
   Vector2d<int> WeightMap(const Vector2d<Tile>& map, const NavigationParameters& navigationParameters, Offset destination);
-  Vector2d<int> WeightMap(const Vector2d<Tile>&        map,
-                          const NavigationParameters&  navigationParameters,
-                          const std::optional<Offset>& destination);
+  Vector2d<int> WeightMap(
+    const Vector2d<Tile>& map,
+    const NavigationParameters& navigationParameters,
+    const std::optional<Offset>& destination);
 
   template <typename Callable>
     requires std::is_invocable_v<Callable, Offset>
   Vector2d<int> WeightMap(const Vector2d<Tile>& map, const NavigationParameters& navigationParameters, Callable&& callable)
   {
     const int Inf = Infinity(map);
-    Vector2d  weights(map.Width(), map.Height(), Inf);
+    Vector2d weights(map.Width(), map.Height(), Inf);
 
     for(const auto offset: OffsetsInRectangle(map.Size()))
     {
@@ -347,12 +350,13 @@ namespace Bot
 
   template <typename Callable>
     requires std::is_invocable_v<Callable, Offset>
-  std::optional<Offset> ClosestReachable(const Vector2d<Tile>&       map,
-                                         Offset                      from,
-                                         const NavigationParameters& navigationParameters,
-                                         Callable&&                  callable)
+  std::optional<Offset> ClosestReachable(
+    const Vector2d<Tile>& map,
+    Offset from,
+    const NavigationParameters& navigationParameters,
+    Callable&& callable)
   {
-    auto weights             = WeightMap(map, navigationParameters);
+    auto weights = WeightMap(map, navigationParameters);
     auto [dist, destination] = DistanceMap(weights, from, std::forward<Callable>(callable));
     return destination;
   }
@@ -363,7 +367,7 @@ template <>
 struct std::formatter<Bot::DoorColor>
 {
   constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin(); }
-  auto           format(const Bot::DoorColor& color, std::format_context& ctx) const
+  auto format(const Bot::DoorColor& color, std::format_context& ctx) const
   {
     using enum Bot::DoorColor;
     std::string s;

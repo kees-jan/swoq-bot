@@ -14,9 +14,9 @@ namespace Bot
     bool AreTilesConsistent(Tile viewTile, Tile destinationTile)
     {
       bool const result = viewTile == Tile::TILE_UNKNOWN || destinationTile == Tile::TILE_UNKNOWN
-                          || viewTile == Tile::TILE_BOULDER || destinationTile == Tile::TILE_BOULDER
-                          || destinationTile == viewTile || IsKey(destinationTile) || IsDoor(destinationTile) || IsKey(viewTile)
-                          || viewTile == Tile::TILE_PLAYER || viewTile == Tile::TILE_ENEMY;
+                       || viewTile == Tile::TILE_BOULDER || destinationTile == Tile::TILE_BOULDER || destinationTile == viewTile
+                       || IsKey(destinationTile) || IsDoor(destinationTile) || IsKey(viewTile) || viewTile == Tile::TILE_PLAYER
+                       || viewTile == Tile::TILE_ENEMY;
 
       if(!result)
         std::println("Tiles are not consistent: view {}, destination {}", viewTile, destinationTile);
@@ -170,7 +170,7 @@ namespace Bot
     assert(newSize.y >= other.Height());
 
     std::vector<Tile> tiles(static_cast<std::size_t>(newSize.x * newSize.y), Tile::TILE_UNKNOWN);
-    const auto&       original = other.Data();
+    const auto& original = other.Data();
     for(int y = 0; y < other.Height(); ++y)
     {
       std::copy_n(original.begin() + y * other.Width(), other.Width(), tiles.begin() + y * newSize.x);
@@ -179,9 +179,10 @@ namespace Bot
   }
 
 
-  Vector2d<int> WeightMap(const Vector2d<Tile>&        map,
-                          const NavigationParameters&  navigationParameters,
-                          const std::optional<Offset>& destination)
+  Vector2d<int> WeightMap(
+    const Vector2d<Tile>& map,
+    const NavigationParameters& navigationParameters,
+    const std::optional<Offset>& destination)
   {
     if(destination)
       return WeightMap(map, navigationParameters, *destination);
@@ -203,10 +204,11 @@ namespace Bot
   {
     int visibility_dimension = 2 * visibility + 1;
     assert(state.surroundings_size() == visibility_dimension * visibility_dimension);
-    return Vector2d(visibility_dimension,
-                    visibility_dimension,
-                    state.surroundings() | std::views::transform([](int t) { return static_cast<Tile>(t); })
-                      | std::ranges::to<std::vector<Tile>>());
+    return Vector2d(
+      visibility_dimension,
+      visibility_dimension,
+      state.surroundings() | std::views::transform([](int t) { return static_cast<Tile>(t); })
+        | std::ranges::to<std::vector<Tile>>());
   }
 
 
@@ -255,7 +257,7 @@ namespace Bot
 
   MapComparisonResult Map::Compare(const Vector2d<Tile>& view, const MapViewCoordinateConverter& convert) const
   {
-    const auto&         me = *this;
+    const auto& me = *this;
     MapComparisonResult result(me);
 
     for(const auto& p: OffsetsInRectangle(view.Size()))
@@ -291,8 +293,9 @@ namespace Bot
       {
         assert(AreTilesConsistent(view[p], me[destination]));
 
-        if(view[p] == Tile::TILE_UNKNOWN || IsDoor(me[destination]) || IsKey(me[destination])
-           || me[destination] == Tile::TILE_BOULDER)
+        if(
+          view[p] == Tile::TILE_UNKNOWN || IsDoor(me[destination]) || IsKey(me[destination])
+          || me[destination] == Tile::TILE_BOULDER)
         {
           continue;
         }
@@ -312,8 +315,9 @@ namespace Bot
         {
           m_doorData[DoorKeyPlateColor(view[p])].pressurePlatePosition = destination;
         }
-        if(view[p] != Tile::TILE_PLAYER && view[p] != Tile::TILE_ENEMY
-           && (me[destination] == Tile::TILE_UNKNOWN || (view[p] != Tile::TILE_BOULDER && !IsKey(view[p]))))
+        if(
+          view[p] != Tile::TILE_PLAYER && view[p] != Tile::TILE_ENEMY
+          && (me[destination] == Tile::TILE_UNKNOWN || (view[p] != Tile::TILE_BOULDER && !IsKey(view[p]))))
         {
           me[destination] = view[p];
         }
@@ -327,8 +331,8 @@ namespace Bot
 
   void Map::IncludeLocalView(const Vector2d<Tile>& view, const MapViewCoordinateConverter& convert, bool silently)
   {
-    auto& me         = *this;
-    bool  foundDelta = false;
+    auto& me = *this;
+    bool foundDelta = false;
 
     if constexpr(Debugging::PrintIncorporatingMovedStuff)
     {
@@ -372,10 +376,10 @@ namespace Bot
   {
     const auto IsEmpty = [&me = *this](Offset p) { return me.IsInRange(p) && IsPotentiallyWalkable(me[p]); };
 
-    bool previousEmpty     = IsEmpty(position + NorthWest);
-    bool currentEmpty      = IsEmpty(position + North);
-    int  partiallyIsolated = 0;
-    int  doublyIsolated    = 0;
+    bool previousEmpty = IsEmpty(position + NorthWest);
+    bool currentEmpty = IsEmpty(position + North);
+    int partiallyIsolated = 0;
+    int doublyIsolated = 0;
 
     for(auto d: {NorthEast, East, SouthEast, South, SouthWest, West, NorthWest, North})
     {
@@ -390,7 +394,7 @@ namespace Bot
       }
 
       previousEmpty = currentEmpty;
-      currentEmpty  = nextEmpty;
+      currentEmpty = nextEmpty;
     }
 
     bool result = (doublyIsolated == 0 && partiallyIsolated <= 2) || (doublyIsolated == 1 && partiallyIsolated == 0);
@@ -399,11 +403,12 @@ namespace Bot
     {
       const auto MyCharFromTile = [&me = *this](Offset p) { return me.IsInRange(p) ? CharFromTile(me[p]) : '@'; };
 
-      std::println("IsGoodBoulder at position {}: doublyIsolated: {}, partiallyIsolated: {}, result: {}",
-                   position,
-                   doublyIsolated,
-                   partiallyIsolated,
-                   result);
+      std::println(
+        "IsGoodBoulder at position {}: doublyIsolated: {}, partiallyIsolated: {}, result: {}",
+        position,
+        doublyIsolated,
+        partiallyIsolated,
+        result);
       std::println(
         "{}{}{}", MyCharFromTile(position + NorthWest), MyCharFromTile(position + North), MyCharFromTile(position + NorthEast));
       std::println("{}{}{}", MyCharFromTile(position + West), MyCharFromTile(position), MyCharFromTile(position + East));
@@ -422,7 +427,7 @@ namespace Bot
   std::optional<Offset>
     ReachablePositionNextTo(const Vector2d<Tile>& map, Offset from, Offset to, const NavigationParameters& navigationParameters)
   {
-    const auto weights      = WeightMap(map, navigationParameters, to);
+    const auto weights = WeightMap(map, navigationParameters, to);
     const auto reversedPath = ReversedPath(weights, from, [&](Offset p) { return p == to; });
 
     if(reversedPath.empty())

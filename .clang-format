@@ -1,10 +1,10 @@
 AccessModifierOffset: -2
-AlignAfterOpenBracket: Align
-AlignConsecutiveAssignments: true
-AlignConsecutiveDeclarations: true
+AlignAfterOpenBracket: AlwaysBreak
+AlignConsecutiveAssignments: None
+AlignConsecutiveDeclarations: None
 AlignEscapedNewlines: Left
-AlignOperands: true
-AlignTrailingComments: true
+AlignOperands: AlignAfterOperator
+AlignTrailingComments: false
 AllowAllParametersOfDeclarationOnNextLine: false
 AllowShortBlocksOnASingleLine: false
 AllowShortCaseLabelsOnASingleLine: false
