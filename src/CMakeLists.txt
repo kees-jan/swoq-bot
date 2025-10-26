@@ -18,6 +18,9 @@ add_library(bot_lib STATIC
         LoggingAndDebugging.h
         Vector2d.cpp
         Formatters.h
+        TileProperties.h
+        DungeonMap.cpp
+        DungeonMap.h
 )
 target_link_libraries(bot_lib PUBLIC
         protobuf::libprotobuf

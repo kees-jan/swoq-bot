@@ -245,9 +245,9 @@ namespace Bot
     return {nullptr, std::move(compareResult)};
   }
 
-  std::shared_ptr<Map>
-    Map::IncludeLocalView(const Vector2d<Tile>& view, const MapViewCoordinateConverter& convert, bool silently) const
+  std::shared_ptr<Map> Map::IncludeLocalView(Offset pos, int visibility, const Vector2d<Tile>& view, bool silently) const
   {
+    MapViewCoordinateConverter convert(pos, visibility, view);
     const auto result = std::make_shared<Map>(*this);
     result->IncludeLocalView(view, convert, silently);
     return result;

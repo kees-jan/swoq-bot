@@ -198,7 +198,7 @@ namespace Bot
     Map(const Map& other, Offset newSize);
     [[nodiscard]] MapUpdateResult Update(Offset pos, int visibility, const Vector2d<Tile>& view) const;
     [[nodiscard]] std::shared_ptr<Map>
-      IncludeLocalView(const Vector2d<Tile>& view, const MapViewCoordinateConverter& convert, bool silently = false) const;
+      IncludeLocalView(Offset pos, int visibility, const Vector2d<Tile>& view, bool silently = false) const;
 
     [[nodiscard]] std::optional<Offset> Exit() const { return m_exit; }
     [[nodiscard]] const DoorMap& DoorData() const;
