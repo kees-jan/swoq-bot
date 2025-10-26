@@ -11,20 +11,6 @@ namespace Bot
 {
   namespace
   {
-    std::vector<Tile> NewMapData(const Map& other, Offset newSize)
-    {
-      assert(newSize.x >= other.Width());
-      assert(newSize.y >= other.Height());
-
-      std::vector<Tile> tiles(static_cast<std::size_t>(newSize.x * newSize.y), Tile::TILE_UNKNOWN);
-      const auto&       original = other.Data();
-      for(int y = 0; y < other.Height(); ++y)
-      {
-        std::copy_n(original.begin() + y * other.Width(), other.Width(), tiles.begin() + y * newSize.x);
-      }
-      return tiles;
-    }
-
     bool AreTilesConsistent(Tile viewTile, Tile destinationTile)
     {
       bool const result = viewTile == Tile::TILE_UNKNOWN || destinationTile == Tile::TILE_UNKNOWN
@@ -178,6 +164,21 @@ namespace Bot
     }
   } // namespace
 
+  std::vector<Tile> NewMapData(const Vector2d<Tile>& other, Offset newSize)
+  {
+    assert(newSize.x >= other.Width());
+    assert(newSize.y >= other.Height());
+
+    std::vector<Tile> tiles(static_cast<std::size_t>(newSize.x * newSize.y), Tile::TILE_UNKNOWN);
+    const auto&       original = other.Data();
+    for(int y = 0; y < other.Height(); ++y)
+    {
+      std::copy_n(original.begin() + y * other.Width(), other.Width(), tiles.begin() + y * newSize.x);
+    }
+    return tiles;
+  }
+
+
   Vector2d<int> WeightMap(const Vector2d<Tile>&        map,
                           const NavigationParameters&  navigationParameters,
                           const std::optional<Offset>& destination)
@@ -228,41 +229,38 @@ namespace Bot
 
   MapUpdateResult Map::Update(Offset pos, int visibility, const Vector2d<Tile>& view) const
   {
-    const Offset offset(visibility, visibility);
-    assert(view.Size() == 2 * offset + One);
+    MapViewCoordinateConverter const convert(pos, visibility, view);
 
-    auto compareResult = Compare(pos, view, offset);
+    auto compareResult = Compare(view, convert);
 
     if(compareResult.needsUpdate)
     {
       const auto result = std::make_shared<Map>(*this, compareResult.newMapSize);
-      result->Update(pos, view, offset);
+      result->Update(view, convert);
       return {result, std::move(compareResult)};
     }
 
     return {nullptr, std::move(compareResult)};
   }
 
-  std::shared_ptr<Map> Map::IncludeLocalView(Offset pos, int visibility, const Vector2d<Tile>& view, bool silently) const
+  std::shared_ptr<Map>
+    Map::IncludeLocalView(const Vector2d<Tile>& view, const MapViewCoordinateConverter& convert, bool silently) const
   {
-    const Offset offset(visibility, visibility);
-    assert(view.Size() == 2 * offset + One);
-
     const auto result = std::make_shared<Map>(*this);
-    result->IncludeLocalView(pos, view, offset, silently);
+    result->IncludeLocalView(view, convert, silently);
     return result;
   }
 
   const DoorMap& Map::DoorData() const { return m_doorData; }
 
-  MapComparisonResult Map::Compare(Offset pos, const Vector2d<Tile>& view, Offset offset) const
+  MapComparisonResult Map::Compare(const Vector2d<Tile>& view, const MapViewCoordinateConverter& convert) const
   {
     const auto&         me = *this;
     MapComparisonResult result(me);
 
     for(const auto& p: OffsetsInRectangle(view.Size()))
     {
-      const auto destination = pos + p - offset;
+      const auto destination = convert.ToMap(p);
 
       if(IsInRange(destination))
       {
@@ -282,13 +280,13 @@ namespace Bot
     return result;
   }
 
-  void Map::Update(Offset pos, const Vector2d<Tile>& view, Offset offset)
+  void Map::Update(const Vector2d<Tile>& view, const MapViewCoordinateConverter& convert)
   {
     auto& me = *this;
 
     for(const auto& p: OffsetsInRectangle(view.Size()))
     {
-      const auto destination = pos + p - offset;
+      const auto destination = convert.ToMap(p);
       if(IsInRange(destination))
       {
         assert(AreTilesConsistent(view[p], me[destination]));
@@ -327,7 +325,7 @@ namespace Bot
     }
   }
 
-  void Map::IncludeLocalView(Offset pos, const Vector2d<Tile>& view, Offset offset, bool silently)
+  void Map::IncludeLocalView(const Vector2d<Tile>& view, const MapViewCoordinateConverter& convert, bool silently)
   {
     auto& me         = *this;
     bool  foundDelta = false;
@@ -336,7 +334,7 @@ namespace Bot
     {
       if(!silently)
       {
-        std::println("Incorporating moved stuff at position {}:", pos);
+        std::println("Incorporating moved stuff at position {}:", convert.MapPosition());
         std::println("View:");
         Print(view);
         std::println("Map:");
@@ -346,7 +344,7 @@ namespace Bot
 
     for(const auto& p: OffsetsInRectangle(view.Size()))
     {
-      const auto destination = pos + p - offset;
+      const auto destination = convert.ToMap(p);
       if(IsInRange(destination))
       {
         assert(AreTilesConsistent(view[p], me[destination]));

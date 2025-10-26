@@ -3,14 +3,14 @@
 #include "Dijkstra.h"
 #include "LoggingAndDebugging.h"
 #include "Swoq.pb.h"
+#include "TileProperties.h"
 #include "Vector2d.h"
 
 namespace Bot
 {
-  using Swoq::Interface::Tile;
-
-  Vector2d<Tile> ViewFromState(int visibility, const Swoq::Interface::PlayerState& state);
-  void           Print(const Vector2d<Tile>& tiles);
+  Vector2d<Tile>    ViewFromState(int visibility, const Swoq::Interface::PlayerState& state);
+  void              Print(const Vector2d<Tile>& tiles);
+  std::vector<Tile> NewMapData(const Vector2d<Tile>& other, Offset newSize);
 
   constexpr char CharFromTile(Tile tile)
   {
@@ -52,39 +52,6 @@ namespace Bot
       return 'S';
     case Tile::TILE_HEALTH:
       return 'H';
-    case Tile::Tile_INT_MAX_SENTINEL_DO_NOT_USE_:
-    case Tile::Tile_INT_MIN_SENTINEL_DO_NOT_USE_:
-      break;
-    }
-    std::terminate();
-  }
-
-  constexpr bool IsPotentiallyWalkable(Tile tile)
-  {
-    switch(tile)
-    {
-    case Tile::TILE_UNKNOWN:
-    case Tile::TILE_EMPTY:
-    case Tile::TILE_EXIT:
-    case Tile::TILE_PLAYER:
-    case Tile::TILE_DOOR_RED:
-    case Tile::TILE_DOOR_GREEN:
-    case Tile::TILE_DOOR_BLUE:
-    case Tile::TILE_KEY_RED:
-    case Tile::TILE_KEY_GREEN:
-    case Tile::TILE_KEY_BLUE:
-    case Tile::TILE_PRESSURE_PLATE_RED:
-    case Tile::TILE_PRESSURE_PLATE_GREEN:
-    case Tile::TILE_PRESSURE_PLATE_BLUE:
-    case Tile::TILE_BOULDER:
-    case Tile::TILE_ENEMY:
-    case Tile::TILE_HEALTH:
-    case Tile::TILE_SWORD:
-      return true;
-
-    case Tile::TILE_WALL:
-      return false;
-
     case Tile::Tile_INT_MAX_SENTINEL_DO_NOT_USE_:
     case Tile::Tile_INT_MIN_SENTINEL_DO_NOT_USE_:
       break;
@@ -204,6 +171,25 @@ namespace Bot
     }
   };
 
+  class MapViewCoordinateConverter
+  {
+  public:
+    constexpr MapViewCoordinateConverter(Offset mapPosition, int visibility, const Vector2d<Tile>& view)
+      : m_position(mapPosition)
+      , m_offset(visibility, visibility)
+    {
+      assert(view.Size() == 2 * m_offset + One);
+    }
+
+    [[nodiscard]] constexpr Offset ToMap(Offset viewPosition) const { return m_position + viewPosition - m_offset; }
+    [[nodiscard]] constexpr Offset ToView(Offset mapPosition) const { return mapPosition - m_position + m_offset; }
+    [[nodiscard]] constexpr Offset MapPosition() const { return m_position; }
+
+  private:
+    Offset m_position;
+    Offset m_offset;
+  };
+
   class Map : public Vector2d<Tile>
   {
   public:
@@ -211,7 +197,7 @@ namespace Bot
     Map(const Map& other, Offset newSize);
     [[nodiscard]] MapUpdateResult Update(Offset pos, int visibility, const Vector2d<Tile>& view) const;
     [[nodiscard]] std::shared_ptr<Map>
-      IncludeLocalView(Offset pos, int visibility, const Vector2d<Tile>& view, bool silently = false) const;
+      IncludeLocalView(const Vector2d<Tile>& view, const MapViewCoordinateConverter& convert, bool silently = false) const;
 
     [[nodiscard]] std::optional<Offset> Exit() const { return m_exit; }
     [[nodiscard]] const DoorMap&        DoorData() const;
@@ -219,31 +205,15 @@ namespace Bot
     [[nodiscard]] bool                  IsGoodBoulder(Offset position) const;
 
   private:
-    [[nodiscard]] MapComparisonResult Compare(Offset pos, const Vector2d<Tile>& view, Offset offset) const;
-    void                              Update(Offset pos, const Vector2d<Tile>& view, Offset offset);
-    void                              IncludeLocalView(Offset pos, const Vector2d<Tile>& view, Offset offset, bool silently);
-    void                              HandleUnknownBoulder(Offset playerPosition, Offset boulderPosition);
+    [[nodiscard]] MapComparisonResult Compare(const Vector2d<Tile>& view, const MapViewCoordinateConverter& convert) const;
+    void                              Update(const Vector2d<Tile>& view, const MapViewCoordinateConverter& convert);
+    void IncludeLocalView(const Vector2d<Tile>& view, const MapViewCoordinateConverter& convert, bool silently);
+    void HandleUnknownBoulder(Offset playerPosition, Offset boulderPosition);
 
     std::optional<Offset> m_exit;
     DoorMap m_doorData{DoorColors | std::views::transform([](auto color) { return std::pair(color, Bot::DoorData{}); })
                        | std::ranges::to<DoorMap>()};
   };
-
-  constexpr bool IsKey(Tile tile)
-  {
-    return tile == Tile::TILE_KEY_RED || tile == Tile::TILE_KEY_GREEN || tile == Tile::TILE_KEY_BLUE;
-  }
-
-  constexpr bool IsPressurePlate(Tile tile)
-  {
-    return tile == Tile::TILE_PRESSURE_PLATE_RED || tile == Tile::TILE_PRESSURE_PLATE_GREEN
-           || tile == Tile::TILE_PRESSURE_PLATE_BLUE;
-  }
-
-  constexpr bool IsDoor(Tile tile)
-  {
-    return tile == Tile::TILE_DOOR_RED || tile == Tile::TILE_DOOR_GREEN || tile == Tile::TILE_DOOR_BLUE;
-  }
 
   constexpr Tile DoorForColor(DoorColor color)
   {
