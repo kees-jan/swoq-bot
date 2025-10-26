@@ -122,10 +122,16 @@ namespace Bot
   } // namespace
 
 
-  Player::Player(int id, GameCallbacks& callbacks, std::unique_ptr<Swoq::Game> game, ThreadSafe<std::shared_ptr<const Map>>& map)
+  Player::Player(
+    int id,
+    GameCallbacks& callbacks,
+    std::unique_ptr<Swoq::Game> game,
+    ThreadSafe<DungeonMap::Ptr>& dungeonMap,
+    ThreadSafe<std::shared_ptr<const Map>>& map)
     : m_id(id)
     , m_callbacks(callbacks)
     , m_game(std::move(game))
+    , m_dungeonMap(dungeonMap)
     , m_map(map)
   {
     // Show game stats
@@ -141,6 +147,11 @@ namespace Bot
     auto state = m_game->state().playerstate();
     const auto& pos = state.position();
     auto view = ViewFromState(visibility, state);
+    {
+      auto dungeonMap = m_dungeonMap.Lock();
+      dungeonMap = dungeonMap->Update(pos, visibility, view);
+    }
+
     auto map = m_map.Lock();
     auto updateResult = map->Update(pos, visibility, view);
 

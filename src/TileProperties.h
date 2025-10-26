@@ -25,7 +25,8 @@ namespace Bot
         .isPotentiallyWalkable = true,
         .mustBeMapped = true,
         .isDoor = false,
-        .canMove = false};
+        .canMove = false,
+      };
     }
     constexpr static TileProperties_t Player()
     {
@@ -35,7 +36,8 @@ namespace Bot
         .isPotentiallyWalkable = false,
         .mustBeMapped = false,
         .isDoor = false,
-        .canMove = false};
+        .canMove = true,
+      };
     }
     constexpr static TileProperties_t Wall()
     {
@@ -45,7 +47,8 @@ namespace Bot
         .isPotentiallyWalkable = false,
         .mustBeMapped = true,
         .isDoor = false,
-        .canMove = false};
+        .canMove = false,
+      };
     }
     constexpr static TileProperties_t Door()
     {
@@ -55,7 +58,8 @@ namespace Bot
         .isPotentiallyWalkable = true,
         .mustBeMapped = true,
         .isDoor = true,
-        .canMove = false};
+        .canMove = false,
+      };
     }
     constexpr static TileProperties_t Item()
     {
@@ -65,7 +69,8 @@ namespace Bot
         .isPotentiallyWalkable = true,
         .mustBeMapped = true,
         .isDoor = false,
-        .canMove = false};
+        .canMove = false,
+      };
     }
     constexpr static TileProperties_t Enemy()
     {
@@ -75,7 +80,8 @@ namespace Bot
         .isPotentiallyWalkable = false,
         .mustBeMapped = false,
         .isDoor = false,
-        .canMove = true};
+        .canMove = true,
+      };
     }
     constexpr static TileProperties_t Yada() { return {}; }
   };
