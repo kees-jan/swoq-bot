@@ -2,25 +2,27 @@ add_library(bot_lib STATIC
         Commands.h
         Dijkstra.h
         Dotenv.cpp
+        DungeonMap.cpp
+        DungeonMap.h
+        Formatters.h
         Game.cpp
         Game.h
         GameCallbacks.h
+        LoggingAndDebugging.h
         Map.cpp
         Map.h
         Offset.h
         Player.cpp
         Player.h
+        PlayerMap.cpp
+        PlayerMap.h
         Swoq.cpp
         Swoq.proto
         ThreadSafe.h
-        TypeTraits.h
-        Vector2d.h
-        LoggingAndDebugging.h
-        Vector2d.cpp
-        Formatters.h
         TileProperties.h
-        DungeonMap.cpp
-        DungeonMap.h
+        TypeTraits.h
+        Vector2d.cpp
+        Vector2d.h
 )
 target_link_libraries(bot_lib PUBLIC
         protobuf::libprotobuf

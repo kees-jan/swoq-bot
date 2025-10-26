@@ -4,8 +4,8 @@
 
 #include "DungeonMap.h"
 #include "GameCallbacks.h"
-#include "Map.h"
 #include "Player.h"
+#include "PlayerMap.h"
 #include "Swoq.hpp"
 #include "ThreadSafe.h"
 
@@ -38,18 +38,18 @@ namespace Bot
     void PrintMap() override;
     void Finished(int id) override;
 
-    std::optional<DoorColor> DoorToOpen(const std::shared_ptr<const Map>& map, int id);
-    std::optional<DoorColor> PressurePlateToActivate(const std::shared_ptr<const Map>& map, int id);
-    OffsetSet BouldersToMove(const std::shared_ptr<const Map>& map, int id);
-    Offset ClosestUncheckedBoulder(const Map& map, int id);
-    std::optional<Offset> ClosestUnusedBoulder(const Map& map, Offset currentLocation, int id);
+    std::optional<DoorColor> DoorToOpen(const std::shared_ptr<const PlayerMap>& map, int id);
+    std::optional<DoorColor> PressurePlateToActivate(const std::shared_ptr<const PlayerMap>& map, int id);
+    OffsetSet BouldersToMove(const std::shared_ptr<const PlayerMap>& map, int id);
+    Offset ClosestUncheckedBoulder(const PlayerMap& map, int id);
+    std::optional<Offset> ClosestUnusedBoulder(const PlayerMap& map, Offset currentLocation, int id);
 
     Swoq::GameConnection m_gameConnection;
     int m_seed;
     int m_level;
     Offset m_mapSize;
     ThreadSafe<DungeonMap::Ptr> m_dungeonMap;
-    ThreadSafe<std::shared_ptr<const Map>> m_map;
+    ThreadSafe<std::shared_ptr<const PlayerMap>> m_playerMap;
     Player m_player;
     PlayerState m_playerState = PlayerState::Idle;
     std::optional<int> m_expectedLevel;

@@ -5,7 +5,6 @@
 #include <Dijkstra.h>
 
 #include "LoggingAndDebugging.h"
-#include "Map.h"
 
 namespace Bot
 {
@@ -15,7 +14,6 @@ namespace Bot
   namespace
   {
     constexpr std::chrono::seconds delay(8);
-    constexpr int EnemyPenalty = 5;
 
     std::expected<DirectedAction, std::string> ActionFromDirection(Offset direction)
     {
@@ -86,39 +84,6 @@ namespace Bot
       assert(false);
     }
 
-    void UpdateEnemyLocations(
-      Offset pos,
-      int visibility,
-      OffsetMap<int>& enemyLocations,
-      const OffsetSet& seenEnemies,
-      const Vector2d<Tile>& view)
-    {
-      const Offset offset(visibility, visibility);
-      assert(view.Size() == 2 * offset + One);
-
-      for(auto it = enemyLocations.begin(); it != enemyLocations.end();)
-      {
-        auto& [location, countDown] = *it;
-        const auto viewPosition = location - pos + offset;
-
-        if(view.IsInRange(viewPosition) && view[viewPosition] != Tile::TILE_UNKNOWN && view[viewPosition] != Tile::TILE_ENEMY)
-          it = enemyLocations.erase(it);
-        else
-        {
-          --countDown;
-          if(countDown <= 0)
-            it = enemyLocations.erase(it);
-          else
-            ++it;
-        }
-      }
-
-      for(const auto enemy: seenEnemies)
-      {
-        enemyLocations[enemy] = EnemyPenalty;
-      }
-    }
-
   } // namespace
 
 
@@ -127,12 +92,12 @@ namespace Bot
     GameCallbacks& callbacks,
     std::unique_ptr<Swoq::Game> game,
     ThreadSafe<DungeonMap::Ptr>& dungeonMap,
-    ThreadSafe<std::shared_ptr<const Map>>& map)
+    ThreadSafe<PlayerMap::Ptr>& map)
     : m_id(id)
     , m_callbacks(callbacks)
     , m_game(std::move(game))
     , m_dungeonMap(dungeonMap)
-    , m_map(map)
+    , m_playerMap(map)
   {
     // Show game stats
     std::println("Game {} started", m_game->game_id());
@@ -152,67 +117,21 @@ namespace Bot
       dungeonMap = dungeonMap->Update(pos, visibility, view);
     }
 
-    auto map = m_map.Lock();
-    auto updateResult = map->Update(pos, visibility, view);
+    auto map = m_playerMap.Lock();
+    auto newMap = map->Update(pos, visibility, view);
 
     auto playerState = m_state.Lock();
     playerState->position = pos;
-    playerState->currentView = updateResult.stuffHasMoved ? std::optional(view) : std::nullopt;
-    UpdateEnemyLocations(pos, visibility, playerState->navigationParameters.enemyLocations, updateResult.enemies, view);
-    playerState->navigationParameters.enemiesInSight = updateResult.enemies;
     playerState->hasSword = state.hassword(); // Not really map related :-(
 
-#ifndef NDEBUG
-    bool bad = false;
-    for(auto p: OffsetsInRectangle(view.Size()))
+    if(newMap != map.Get())
     {
-      const auto destination = pos + p - visibility * One;
-      const bool ok = view[p] != Tile::TILE_BOULDER || playerState->navigationParameters.currentBoulders.contains(destination)
-                   || updateResult.newBoulders.contains(destination);
-
-      if(!ok)
-      {
-        std::println("Boulder at {} (destination {}) not in known boulders", p - visibility * One, destination);
-        bad = true;
-      }
-    }
-    if(bad)
-    {
-      std::println("Player position: {}", static_cast<Offset>(pos));
-      Print(view);
-      std::println("currentBoulders: {}", playerState->navigationParameters.currentBoulders);
-      std::println("newBoulders:     {}", updateResult.newBoulders);
-    }
-    std::println("Enemy locations: {}", playerState->navigationParameters.enemyLocations);
-#endif
-
-    if(const auto newMap = updateResult.map; newMap)
-    {
-      bool const updated =
-        (newMap->Exit() && !map->Exit()) || newMap->DoorData() != map->DoorData() || !updateResult.newBoulders.empty();
-
-      playerState->navigationParameters.uncheckedBoulders.insert(
-        updateResult.newBoulders.begin(), updateResult.newBoulders.end());
-      playerState->navigationParameters.currentBoulders.merge(updateResult.newBoulders);
-
       map = newMap;
 
-      return updated;
+      return true;
     }
 
     return false;
-  }
-
-  std::shared_ptr<const Map> Player::GetMap(bool silently)
-  {
-    auto state = m_state.Get();
-    auto map = m_map.Get();
-    if(state.currentView)
-    {
-      return map->IncludeLocalView(state.position, m_game->visibility_range(), *state.currentView, silently);
-    }
-
-    return map;
   }
 
   std::expected<bool, std::string> Player::DoCommandIfAny()
@@ -264,14 +183,15 @@ namespace Bot
   {
     if constexpr(Debugging::PrintPlayerMaps)
     {
-      auto characterMap = GetMap(true)->Vector2d::Map([](Tile t) { return CharFromTile(t); });
+      auto map = m_playerMap.Get();
+      auto characterMap = map->Vector2d::Map([](Tile t) { return CharFromTile(t); });
+      for(auto& [position, penalty]: map->enemies.locations)
+        characterMap[position] = 'e';
+      for(auto position: map->enemies.inSight)
+        characterMap[position] = 'E';
       auto p0state = m_state.Get();
       Offset p0 = p0state.position;
       characterMap[p0] = 'a';
-      for(auto& [enemy, countdown]: p0state.navigationParameters.enemyLocations)
-      {
-        characterMap[enemy] = 'E';
-      }
       for(const auto& step: p0state.reversedPath)
       {
         if(characterMap[step] == '.' || characterMap[step] == ' ')
@@ -282,10 +202,16 @@ namespace Bot
       std::println("Player {} map:", m_id);
       Print(characterMap);
       std::println();
+      std::println("Exit:                 {}", map->Exit());
+      std::println("DoorData:             {}", map->DoorData());
+      std::println("Unchecked boulders:   {}", map->uncheckedBoulders);
+      std::println("Used boulders:        {}", map->usedBoulders);
+      std::println("Enemies:              {}", map->enemies);
+      std::println("NavigationParameters: {}", map->NavigationParameters());
     }
     if constexpr(Debugging::PrintPlayerMapsAsTiles)
     {
-      PrintEnum(*GetMap(true));
+      PrintEnum(*m_playerMap.Get());
       std::println();
     }
   }
@@ -336,8 +262,8 @@ namespace Bot
   {
     auto state = m_game->state().playerstate();
     auto pos = state.position();
-    auto map = m_map.Lock();
-    auto newMap = std::make_shared<Map>(*map, max(pos + 2 * One, map->Size()));
+    auto map = m_playerMap.Lock();
+    auto newMap = std::make_shared<PlayerMap>(*map, max(pos + 2 * One, map->Size()));
     auto& cell = (*newMap)[pos];
     if(cell == Tile::TILE_UNKNOWN)
     {
@@ -346,16 +272,9 @@ namespace Bot
     map = newMap;
   }
 
-  void Player::InitializeNavigation()
-  {
-    auto state = m_state.Lock();
-    state->navigationParameters = NavigationParameters{};
-  }
-
   void Player::InitializeLevel()
   {
     InitializeMap();
-    InitializeNavigation();
     InitializeCommands();
   }
 
@@ -437,7 +356,7 @@ namespace Bot
 
   std::expected<bool, std::string> Player::VisitTiles(const std::set<Tile>& tiles)
   {
-    auto map = GetMap();
+    auto map = m_playerMap.Get();
     return ComputePathAndThen(
       map,
       [&map = *map, &tiles](Offset p) { return tiles.contains(map[p]); },
@@ -446,9 +365,8 @@ namespace Bot
 
   std::expected<bool, std::string> Player::Visit(Offset destination)
   {
-    auto map = GetMap();
     return ComputePathAndThen(
-      map,
+      m_playerMap.Get(),
       destination,
       [destination](Offset p) { return p == destination; },
       [&](auto& state) { return MoveToDestination(state, destination); });
@@ -463,13 +381,13 @@ namespace Bot
       [&]()
       {
         std::println("Player {}: Opened door of color {}", m_id, door.color);
-        state->navigationParameters.doorParameters.at(door.color).avoidDoor = false;
+        UpdateMap([&](auto map) { map->NavigationParameters().doorParameters.at(door.color).avoidDoor = false; });
       });
   }
 
   std::expected<bool, std::string> Player::MoveAlongPathThenUse(
     ThreadSafeProxy<PlayerState>& state,
-    std::shared_ptr<const Map> map,
+    std::shared_ptr<const PlayerMap> map,
     Tile expectedTileAfterUse,
     std::string_view message)
   {
@@ -498,9 +416,8 @@ namespace Bot
 
   std::expected<bool, std::string> Player::OpenDoor(Bot::OpenDoor& door)
   {
-    auto map = GetMap();
     return ComputePathAndThen(
-      map,
+      m_playerMap.Get(),
       door.position,
       [&](Offset p) { return p == door.position; },
       [&](auto& state) { return MoveAlongPathThenOpenDoor(state, door); });
@@ -508,10 +425,9 @@ namespace Bot
 
   std::expected<bool, std::string> Player::FetchBoulder(Bot::FetchBoulder& fetchBoulder)
   {
-    auto map = GetMap();
     auto boulderPosition = fetchBoulder.position;
     return ComputePathAndThen(
-      map,
+      m_playerMap.Get(),
       boulderPosition,
       [&](Offset p) { return p == boulderPosition; },
       [&](auto& state)
@@ -522,17 +438,19 @@ namespace Bot
           [&]()
           {
             std::println("FetchBoulder: About to pick up boulder at {}", boulderPosition);
-            state->navigationParameters.uncheckedBoulders.erase(boulderPosition);
-            state->navigationParameters.usedBoulders.erase(boulderPosition);
-            auto eraseCount = state->navigationParameters.currentBoulders.erase(boulderPosition);
-            assert(eraseCount == 1);
+            UpdateMap(
+              [&](auto map)
+              {
+                map->uncheckedBoulders.erase(boulderPosition);
+                map->usedBoulders.erase(boulderPosition);
+              });
           });
       });
   }
 
   std::expected<bool, std::string> Player::DropBoulder(Bot::DropBoulder_t& dropBoulder)
   {
-    auto map = GetMap();
+    auto map = m_playerMap.Get();
     auto myLocation = m_state.Get().position;
     return ComputePathAndThen(
       map,
@@ -546,17 +464,15 @@ namespace Bot
           {
             auto destination = state->reversedPath.front();
             std::println("DropBoulder: About to drop boulder at {}", destination);
-            state->navigationParameters.currentBoulders.insert(destination);
           });
       });
   }
 
   std::expected<bool, std::string> Player::PlaceBoulderOnPressurePlate(Bot::PlaceBoulderOnPressurePlate& placeBoulder)
   {
-    auto map = GetMap();
     auto pressurePlatePosition = placeBoulder.position;
     return ComputePathAndThen(
-      map,
+      m_playerMap.Get(),
       pressurePlatePosition,
       [&](Offset p) { return p == pressurePlatePosition; },
       [&](auto& state) -> std::expected<bool, std::string>
@@ -567,20 +483,25 @@ namespace Bot
           [&]()
           {
             std::println("PlaceBoulderOnPressurePlate: About to drop boulder at {}", pressurePlatePosition);
-            state->navigationParameters.currentBoulders.insert(pressurePlatePosition);
-            state->navigationParameters.usedBoulders.insert(pressurePlatePosition);
-            state->navigationParameters.doorParameters.at(placeBoulder.color).avoidDoor = false;
+            UpdateMap(
+              [&](auto map)
+              {
+                map->usedBoulders.insert(pressurePlatePosition);
+                map->NavigationParameters().doorParameters.at(placeBoulder.color).avoidDoor = false;
+              });
           });
       });
   }
 
   std::expected<bool, std::string> Player::ReconsiderUncheckedBoulders()
   {
-    auto map = GetMap();
-    auto state = m_state.Lock();
-    state->navigationParameters.uncheckedBoulders = state->navigationParameters.uncheckedBoulders
-                                                  | std::views::filter([&map](Offset p) { return !map->IsGoodBoulder(p); })
-                                                  | std::ranges::to<OffsetSet>();
+    UpdateMap(
+      [&](auto map)
+      {
+        map->uncheckedBoulders = map->uncheckedBoulders | std::views::filter([&map](Offset p) { return !map->IsGoodBoulder(p); })
+                               | std::ranges::to<OffsetSet>();
+      });
+
 
     return true;
   }
@@ -598,6 +519,17 @@ namespace Bot
     return false;
   }
 
+  std::expected<bool, std::string> Player::LeaveSquare()
+  {
+    std::optional<Offset> dummy;
+    auto result = LeaveSquare(dummy);
+    if(result)
+    {
+      assert(!*result);
+    }
+    return result;
+  }
+
   std::expected<bool, std::string> Player::LeaveSquare(std::optional<Offset>& originalSquare)
   {
     auto position = m_state.Get().position;
@@ -611,20 +543,19 @@ namespace Bot
     }
 
     return ComputePathAndThen(
-      GetMap(), [position](Offset p) { return p != position; }, [&](auto& state) { return MoveToDestination(state); });
+      m_playerMap.Get(), [position](Offset p) { return p != position; }, [&](auto& state) { return MoveToDestination(state); });
   }
 
   std::expected<bool, std::string> Player::Execute(DropDoorOnEnemy& dropDoorOnEnemy)
   {
-    auto state = m_state.Get();
+    auto map = m_playerMap.Get();
     if(dropDoorOnEnemy.waiting)
     {
-      auto enemies = state.navigationParameters.enemyLocations | std::views::transform([](auto& pair) { return pair.first; });
+      auto enemies = map->enemies.locations | std::views::transform([](auto& pair) { return pair.first; });
       if(std::ranges::find_first_of(enemies, dropDoorOnEnemy.doorLocations) != std::ranges::end(enemies))
       {
         dropDoorOnEnemy.waiting = false;
-        std::optional<Offset> dummy;
-        return LeaveSquare(dummy);
+        return LeaveSquare();
       }
       return Wait();
     }
@@ -635,13 +566,15 @@ namespace Bot
   std::expected<bool, std::string> Player::PeekUnderEnemies(const OffsetSet& tileLocations)
   {
 
-    auto map = GetMap();
+    auto map = m_playerMap.Get();
     auto remaining = tileLocations | std::views::filter([&](Offset location) { return (*map)[location] == Tile::TILE_UNKNOWN; })
                    | std::ranges::to<OffsetSet>();
 
     auto state = m_state.Get();
     auto destinationPredicate = [&](Offset p) { return remaining.contains(p); };
-    auto weights = WeightMap(*map, state.navigationParameters, destinationPredicate);
+    auto navigationParameters = map->NavigationParameters();
+    navigationParameters.avoidEnemies = false;
+    auto weights = WeightMap(*map, map->enemies, navigationParameters, destinationPredicate);
 
     auto [dist, destination] = DistanceMap(weights, state.position, destinationPredicate);
     if(!destination)
@@ -649,8 +582,11 @@ namespace Bot
 
     auto distance = dist[*destination];
 
-    if(state.navigationParameters.enemyLocations.contains(*destination))
+    if(map->enemies.locations.contains(*destination))
     {
+      if(distance == 1)
+        return LeaveSquare();
+
       if(distance >= 3)
         return Visit(*destination);
 
@@ -683,7 +619,7 @@ namespace Bot
         InitializeLevel();
       }
 
-      if(UpdateMap() || !m_state.Get().navigationParameters.enemiesInSight.empty())
+      if(UpdateMap())
       {
         m_callbacks.MapUpdated(m_id);
       }

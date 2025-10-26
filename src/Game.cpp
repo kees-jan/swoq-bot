@@ -1,6 +1,7 @@
 #include "Game.h"
 
 #include <print>
+#include <ranges>
 
 #include "Dijkstra.h"
 #include "LoggingAndDebugging.h"
@@ -22,8 +23,8 @@ namespace Bot
     , m_level(0)
     , m_mapSize(game->map_width(), game->map_height())
     , m_dungeonMap(DungeonMap::Create(m_mapSize))
-    , m_map(std::make_shared<Map>(m_mapSize))
-    , m_player(0, *this, std::move(game), m_dungeonMap, m_map)
+    , m_playerMap(std::make_shared<PlayerMap>(m_mapSize))
+    , m_player(0, *this, std::move(game), m_dungeonMap, m_playerMap)
     , m_expectedLevel(expectedLevel)
   {
   }
@@ -46,7 +47,7 @@ namespace Bot
 
       std::print("Reached level {}!\n", level);
       m_level = level;
-      m_map.Lock() = std::make_shared<Map>(m_mapSize);
+      m_playerMap.Lock() = std::make_shared<PlayerMap>(m_mapSize);
       m_dungeonMap.Lock() = DungeonMap::Create(m_mapSize);
     }
     else
@@ -60,8 +61,8 @@ namespace Bot
     std::println("Game: Player {} updated the map while doing  {}", id, m_playerState);
 
     auto p0state = m_player.State();
-    auto map = m_map.Get();
-    auto& enemiesInSight = p0state.navigationParameters.enemiesInSight;
+    auto map = m_playerMap.Get();
+    auto& enemiesInSight = map->enemies.inSight;
     auto unknownSquares = enemiesInSight
                         | std::views::filter([&, map = *map](Offset pos) { return map[pos] == Tile::TILE_UNKNOWN; })
                         | std::ranges::to<OffsetSet>();
@@ -103,7 +104,7 @@ namespace Bot
   {
     if constexpr(Debugging::PrintGameMaps)
     {
-      auto characterMap = m_map.Get()->Vector2d::Map([](Tile t) { return CharFromTile(t); });
+      auto characterMap = m_playerMap.Get()->Vector2d::Map([](Tile t) { return CharFromTile(t); });
       auto p0state = m_player.State();
       Offset p0 = p0state.position;
       characterMap[p0] = 'a';
@@ -126,7 +127,7 @@ namespace Bot
 
     if(id == 0)
     {
-      auto map = m_map.Get();
+      auto map = m_playerMap.Get();
       std::optional<DoorColor> doorToOpen = DoorToOpen(map, id);
       std::optional<DoorColor> pressurePlateToActivate = PressurePlateToActivate(map, id);
       OffsetSet bouldersToMove = BouldersToMove(map, id);
@@ -248,15 +249,12 @@ namespace Bot
     }
   }
 
-  std::optional<DoorColor> Game::DoorToOpen(const std::shared_ptr<const Map>& map, int)
+  std::optional<DoorColor> Game::DoorToOpen(const std::shared_ptr<const PlayerMap>& map, int)
   {
-    auto playerState = m_player.State();
     for(auto color: DoorColors)
     {
       auto doorData = map->DoorData().at(color);
-      if(
-        !doorData.doorPosition.empty() && doorData.keyPosition
-        && playerState.navigationParameters.doorParameters.at(color).avoidDoor)
+      if(!doorData.doorPosition.empty() && doorData.keyPosition && map->NavigationParameters().doorParameters.at(color).avoidDoor)
       {
         return color;
       }
@@ -265,15 +263,14 @@ namespace Bot
     return std::nullopt;
   }
 
-  std::optional<DoorColor> Game::PressurePlateToActivate(const std::shared_ptr<const Map>& map, int)
+  std::optional<DoorColor> Game::PressurePlateToActivate(const std::shared_ptr<const PlayerMap>& map, int)
   {
-    auto playerState = m_player.State();
     for(auto color: DoorColors)
     {
       auto doorData = map->DoorData().at(color);
       if(
         !doorData.doorPosition.empty() && doorData.pressurePlatePosition
-        && playerState.navigationParameters.doorParameters.at(color).avoidDoor)
+        && map->NavigationParameters().doorParameters.at(color).avoidDoor)
       {
         return color;
       }
@@ -282,36 +279,38 @@ namespace Bot
     return std::nullopt;
   }
 
-  OffsetSet Game::BouldersToMove(const std::shared_ptr<const Map>&, int)
-  {
-    return m_player.State().navigationParameters.uncheckedBoulders;
-  }
+  OffsetSet Game::BouldersToMove(const std::shared_ptr<const PlayerMap>& map, int) { return map->uncheckedBoulders; }
 
-  Offset Game::ClosestUncheckedBoulder(const Map& map, int)
+  Offset Game::ClosestUncheckedBoulder(const PlayerMap& map, int)
   {
     auto state = m_player.State();
-    NavigationParameters navigationParameters = state.navigationParameters;
-    navigationParameters.currentBoulders.clear();
-    navigationParameters.avoidBoulders = false;
 
-    auto weights = WeightMap(map, navigationParameters);
-    auto [dist, destination] =
-      DistanceMap(weights, state.position, [&](Offset p) { return state.navigationParameters.uncheckedBoulders.contains(p); });
+    auto destinationPredicate = [&](Offset p) { return map.uncheckedBoulders.contains(p); };
+    auto weights = WeightMap(map, map.enemies, map.NavigationParameters(), destinationPredicate);
+    auto [dist, destination] = DistanceMap(weights, state.position, destinationPredicate);
 
     assert(destination);
 
     return *destination;
   }
 
-  std::optional<Offset> Game::ClosestUnusedBoulder(const Map& map, Offset currentLocation, int)
+  std::optional<Offset> Game::ClosestUnusedBoulder(const PlayerMap& map, Offset currentLocation, int)
   {
     auto state = m_player.State();
-    NavigationParameters navigationParameters = state.navigationParameters;
+    NavigationParameters navigationParameters = map.NavigationParameters();
 
-    auto destination = [&](Offset p)
-    { return state.navigationParameters.currentBoulders.contains(p) && !state.navigationParameters.usedBoulders.contains(p); };
+    OffsetSet unusedBoulders;
+    for(auto p: OffsetsInRectangle(map.Size()))
+    {
+      if(map[p] == Tile::TILE_BOULDER && !map.usedBoulders.contains(p))
+      {
+        unusedBoulders.insert(p);
+      }
+    }
 
-    auto weights = WeightMap(map, navigationParameters, destination);
+    auto destination = [&](Offset p) { return unusedBoulders.contains(p); };
+
+    auto weights = WeightMap(map, map.enemies, navigationParameters, destination);
     auto [dist, boulderPosition] = DistanceMap(weights, currentLocation, destination);
 
     return boulderPosition;

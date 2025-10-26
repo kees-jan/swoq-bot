@@ -6,8 +6,8 @@
 #include <set>
 #include <variant>
 
-#include "Map.h"
 #include "Offset.h"
+#include "PlayerMap.h"
 #include "Swoq.pb.h"
 
 namespace Bot

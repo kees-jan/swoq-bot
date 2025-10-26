@@ -6,6 +6,7 @@
 
 #include "LoggingAndDebugging.h"
 #include "Swoq.hpp"
+#include "TileProperties.h"
 
 namespace Bot
 {

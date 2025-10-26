@@ -11,7 +11,7 @@ strict digraph ThePlan {
   subgraph InProgress
   {
     node [color=green, style=filled]
-    "Extract dungeon map"
+    "Extract player map"
   }
 
   subgraph Done
@@ -19,6 +19,8 @@ strict digraph ThePlan {
     node [color=darkgreen, style=filled, fontcolor=white]
     "Describe all levels"
     "Introduce tile properties"
+    "Extract dungeon map"
+    "Update dungeon map from view"
   }
 
   // Tasks

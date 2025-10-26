@@ -36,9 +36,9 @@ namespace Bot
     }
 
   private:
-    std::mutex              m_mutex;
+    std::mutex m_mutex;
     std::condition_variable m_condition;
-    T                       m_value;
+    T m_value;
 
     friend class ThreadSafeProxy<T>;
   };
@@ -54,12 +54,19 @@ namespace Bot
     }
 
     T& operator=(T&& other)
+      requires(std::is_move_constructible_v<T>)
     {
-      m_me->m_value = std::forward<T>(other);
+      m_me->m_value = std::move(other);
       return Get();
     }
 
-    T&       Get() { return m_me->m_value; }
+    T& operator=(const T& other)
+    {
+      m_me->m_value = other;
+      return Get();
+    }
+
+    T& Get() { return m_me->m_value; }
     const T& Get() const { return m_me->m_value; }
 
     decltype(auto) operator*()
@@ -125,7 +132,7 @@ namespace Bot
     }
 
   private:
-    ThreadSafe<T>*               m_me;
+    ThreadSafe<T>* m_me;
     std::unique_lock<std::mutex> m_lock;
   };
 

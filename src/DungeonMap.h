@@ -2,11 +2,8 @@
 
 #include <memory>
 
-#include "Dijkstra.h"
-#include "LoggingAndDebugging.h"
 #include "Map.h"
 #include "Swoq.pb.h"
-#include "TileProperties.h"
 #include "Vector2d.h"
 
 namespace Bot
