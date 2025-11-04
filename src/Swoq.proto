@@ -27,6 +27,8 @@ message StartResponse {
 message ActRequest {
     string gameId = 1;
     optional DirectedAction action = 2;
+    // Level 12 and higher:
+    optional DirectedAction action2 = 3;
 }
 
 message ActResponse {
@@ -56,6 +58,9 @@ enum ActResult {
     ACT_RESULT_INVENTORY_EMPTY = 8;
     // Level 8 and higher:
     ACT_RESULT_NO_SWORD = 9;
+    // Level 12 and higher:
+    ACT_RESULT_PLAYER_NOT_PRESENT = 10;
+    ACT_RESULT_PLAYER2_NOT_PRESENT = 11;
 }
 
 message State {
@@ -63,6 +68,8 @@ message State {
     int32 level = 2;
     GameStatus status = 3;
     optional PlayerState playerState = 4;
+    // Level 12 and higher:
+    optional PlayerState player2State = 5;
 }
 
 enum DirectedAction {
@@ -85,6 +92,8 @@ enum GameStatus {
     GAME_STATUS_FINISHED_NO_PROGRESS = 3;
     GAME_STATUS_FINISHED_PLAYER_DIED = 4;
     GAME_STATUS_FINISHED_CANCELED = 5;
+    // Level 12 and higher:
+    GAME_STATUS_FINISHED_PLAYER2_DIED = 6;
 }
 
 message PlayerState {

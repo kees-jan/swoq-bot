@@ -52,7 +52,9 @@ strict digraph ThePlan {
 7. Place a boulder on a pressureplate (lots of boulders in this level)
 8. Avoid being caught by the enemy (some boulders)
 9. Stand on pressureplate. Drop the door on the enemy. The enemy will drop the key. (no boulders)
-10. Use sword to kill the enemy. The enemy will drop the key?
+10. Use sword to kill the enemy. The enemy will drop the key
+11. Two enemies, one of which behind a door. Both enemies have keys. Be sure to collect sufficient hearts
+12. One enemy which has the key to unlock my colleague. Huge distance between sword and heart. Danger ;-)
 
 
 # "Game" state

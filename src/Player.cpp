@@ -74,6 +74,7 @@ namespace Bot
       case GameStatus::GAME_STATUS_FINISHED_TIMEOUT:
       case GameStatus::GAME_STATUS_FINISHED_NO_PROGRESS:
       case GameStatus::GAME_STATUS_FINISHED_PLAYER_DIED:
+      case GameStatus::GAME_STATUS_FINISHED_PLAYER2_DIED:
       case GameStatus::GAME_STATUS_FINISHED_CANCELED:
         return std::unexpected(std::format("{}", status));
 

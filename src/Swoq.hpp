@@ -22,73 +22,76 @@ namespace Swoq
   class GameConnection
   {
   public:
-    GameConnection(std::string_view                user_id,
-                   std::string_view                user_name,
-                   std::string_view                host,
-                   std::optional<std::string_view> replays_folder);
-    GameConnection()  = delete;
+    GameConnection(
+      std::string_view user_id,
+      std::string_view user_name,
+      std::string_view host,
+      std::optional<std::string_view> replays_folder);
+    GameConnection() = delete;
     ~GameConnection() = default;
 
-    std::expected<std::unique_ptr<Game>, std::string> start(std::optional<int> level = std::nullopt,
-                                                            std::optional<int> seed  = std::nullopt);
+    std::expected<std::unique_ptr<Game>, std::string>
+      start(std::optional<int> level = std::nullopt, std::optional<int> seed = std::nullopt);
 
   private:
-    std::expected<Interface::StartResponse, std::string> start_internal(std::optional<int> level = std::nullopt,
-                                                                        std::optional<int> seed  = std::nullopt);
+    std::expected<Interface::StartResponse, std::string>
+      start_internal(std::optional<int> level = std::nullopt, std::optional<int> seed = std::nullopt);
 
 
-    std::string                m_user_id;
-    std::string                m_user_name;
+    std::string m_user_id;
+    std::string m_user_name;
     std::optional<std::string> m_replays_folder;
 
-    std::shared_ptr<grpc::Channel>                      m_channel;
+    std::shared_ptr<grpc::Channel> m_channel;
     std::shared_ptr<Swoq::Interface::GameService::Stub> m_stub;
   };
 
   class ReplayFile
   {
   public:
-    static std::expected<std::unique_ptr<ReplayFile>, std::string> create(std::string_view                      replays_folder,
-                                                                          const Swoq::Interface::StartRequest&  request,
-                                                                          const Swoq::Interface::StartResponse& response);
+    static std::expected<std::unique_ptr<ReplayFile>, std::string> create(
+      std::string_view replays_folder,
+      const Swoq::Interface::StartRequest& request,
+      const Swoq::Interface::StartResponse& response);
 
     explicit ReplayFile(std::ofstream&& stream);
-    ~ReplayFile()                            = default;
-    ReplayFile(const ReplayFile&)            = delete;
+    ~ReplayFile() = default;
+    ReplayFile(const ReplayFile&) = delete;
     ReplayFile& operator=(const ReplayFile&) = delete;
 
-    std::expected<void, std::string> append(const Swoq::Interface::ActRequest&  request,
-                                            const Swoq::Interface::ActResponse& response);
+    std::expected<void, std::string>
+      append(const Swoq::Interface::ActRequest& request, const Swoq::Interface::ActResponse& response);
 
   private:
     std::expected<void, std::string> write_delimited(const google::protobuf::Message& msg);
 
-    std::ofstream                             m_stream;
+    std::ofstream m_stream;
     google::protobuf::io::OstreamOutputStream m_zero_copy_output;
-    google::protobuf::io::CodedOutputStream   m_coded_output;
+    google::protobuf::io::CodedOutputStream m_coded_output;
   };
 
   class Game
   {
   public:
-    Game(std::shared_ptr<Swoq::Interface::GameService::Stub> stub,
-         const Swoq::Interface::StartResponse&               start_response,
-         std::unique_ptr<ReplayFile>&&                       replay_file);
+    Game(
+      std::shared_ptr<Swoq::Interface::GameService::Stub> stub,
+      const Swoq::Interface::StartResponse& start_response,
+      std::unique_ptr<ReplayFile>&& replay_file);
 
-    const std::string&            game_id() const;
-    int                           map_width() const;
-    int                           map_height() const;
-    int                           visibility_range() const;
-    int                           seed() const;
+    const std::string& game_id() const;
+    int map_width() const;
+    int map_height() const;
+    int visibility_range() const;
+    int seed() const;
     const Swoq::Interface::State& state() const;
 
     std::expected<void, std::string> act(Swoq::Interface::DirectedAction action);
 
   private:
     std::shared_ptr<Swoq::Interface::GameService::Stub> m_stub;
-    std::unique_ptr<ReplayFile>                         m_replay_file;
-    Swoq::Interface::StartResponse                      m_start_response;
-    Swoq::Interface::State                              m_state;
+    std::unique_ptr<ReplayFile> m_replay_file;
+    Swoq::Interface::StartResponse m_start_response;
+    Swoq::Interface::State m_state;
   };
 
 } // namespace Swoq
@@ -97,7 +100,7 @@ template <>
 struct std::formatter<Swoq::Interface::StartResult>
 {
   constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin(); }
-  auto           format(const Swoq::Interface::StartResult& result, std::format_context& ctx) const
+  auto format(const Swoq::Interface::StartResult& result, std::format_context& ctx) const
   {
     using enum Swoq::Interface::StartResult;
     std::string s = "<UNKNOWN>";
@@ -133,7 +136,7 @@ template <>
 struct std::formatter<Swoq::Interface::ActResult>
 {
   constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin(); }
-  auto           format(const Swoq::Interface::ActResult& result, std::format_context& ctx) const
+  auto format(const Swoq::Interface::ActResult& result, std::format_context& ctx) const
   {
     using enum Swoq::Interface::ActResult;
     std::string s = "<UNKNOWN>";
@@ -169,6 +172,12 @@ struct std::formatter<Swoq::Interface::ActResult>
     case ACT_RESULT_NO_SWORD:
       s = "NO_SWORD";
       break;
+    case ACT_RESULT_PLAYER_NOT_PRESENT:
+      s = "PLAYER_NOT_PRESENT";
+      break;
+    case ACT_RESULT_PLAYER2_NOT_PRESENT:
+      s = "PLAYER2_NOT_PRESENT";
+      break;
     case ActResult_INT_MAX_SENTINEL_DO_NOT_USE_:
     case ActResult_INT_MIN_SENTINEL_DO_NOT_USE_:
       std::terminate();
@@ -181,7 +190,7 @@ template <>
 struct std::formatter<Swoq::Interface::DirectedAction>
 {
   constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin(); }
-  auto           format(const Swoq::Interface::DirectedAction& action, std::format_context& ctx) const
+  auto format(const Swoq::Interface::DirectedAction& action, std::format_context& ctx) const
   {
     using enum Swoq::Interface::DirectedAction;
     std::string s;
@@ -230,7 +239,7 @@ template <>
 struct std::formatter<Swoq::Interface::Tile>
 {
   constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin(); }
-  auto           format(const Swoq::Interface::Tile& tile, std::format_context& ctx) const
+  auto format(const Swoq::Interface::Tile& tile, std::format_context& ctx) const
   {
     using enum Swoq::Interface::Tile;
     std::string s;
@@ -306,7 +315,7 @@ template <>
 struct std::formatter<Swoq::Interface::GameStatus>
 {
   constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin(); }
-  auto           format(const Swoq::Interface::GameStatus& result, std::format_context& ctx) const
+  auto format(const Swoq::Interface::GameStatus& result, std::format_context& ctx) const
   {
     using enum Swoq::Interface::GameStatus;
     std::string s = "<UNKNOWN>";
@@ -329,6 +338,9 @@ struct std::formatter<Swoq::Interface::GameStatus>
       break;
     case GAME_STATUS_FINISHED_CANCELED:
       s = "GAME_STATUS_FINISHED_CANCELED";
+      break;
+    case GAME_STATUS_FINISHED_PLAYER2_DIED:
+      s = "GAME_STATUS_FINISHED_PLAYER2_DIED";
       break;
     case GameStatus_INT_MIN_SENTINEL_DO_NOT_USE_:
     case GameStatus_INT_MAX_SENTINEL_DO_NOT_USE_:
