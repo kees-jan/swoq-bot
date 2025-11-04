@@ -5,6 +5,7 @@
 #include <format>
 #include <generator>
 #include <initializer_list>
+#include <ranges>
 #include <set>
 
 #include "Swoq.pb.h"
@@ -33,7 +34,7 @@ struct Offset
     return *this;
   }
 
-  constexpr Offset  operator-() const noexcept { return Offset{-x, -y}; }
+  constexpr Offset operator-() const noexcept { return Offset{-x, -y}; }
   constexpr Offset& operator-=(const Offset& other) noexcept { return *this += -other; }
 
   constexpr Offset& operator*=(int factor) noexcept
@@ -63,8 +64,8 @@ constexpr Offset operator*(const Offset& offset, int factor) noexcept
 }
 
 constexpr Offset operator*(int factor, const Offset& offset) noexcept { return offset * factor; }
-constexpr bool   operator==(const Offset& left, const Offset& right) noexcept { return left.x == right.x && left.y == right.y; }
-constexpr bool   operator!=(const Offset& left, const Offset& right) noexcept { return !(left == right); }
+constexpr bool operator==(const Offset& left, const Offset& right) noexcept { return left.x == right.x && left.y == right.y; }
+constexpr bool operator!=(const Offset& left, const Offset& right) noexcept { return !(left == right); }
 constexpr Offset max(Offset left, Offset right) { return Offset{std::max(left.x, right.x), std::max(left.y, right.y)}; }
 
 
@@ -123,11 +124,30 @@ using OffsetSet = std::set<Offset, OffsetLess>;
 template <typename V>
 using OffsetMap = std::map<Offset, V, OffsetLess>;
 
+// Adapter to convert an input_range of Offsets into an OffsetSet.
+// Currently, std::range::to() cannot do it. Rob promises that
+// gcc 15 will be better
+constexpr struct ToOffsetSet_t
+{
+} ToOffsetSet{};
+
+template <std::ranges::input_range R>
+  requires std::convertible_to<std::ranges::range_value_t<R>, Offset>
+OffsetSet operator|(R&& range, ToOffsetSet_t)
+{
+  OffsetSet out;
+  for(auto&& offset: range)
+  {
+    out.insert(offset);
+  }
+  return out;
+}
+
 template <>
 struct std::formatter<Offset>
 {
   constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin(); }
-  auto           format(const Offset& offset, std::format_context& ctx) const
+  auto format(const Offset& offset, std::format_context& ctx) const
   {
     return std::format_to(ctx.out(), "{{{}, {}}}", offset.x, offset.y);
   }

@@ -122,7 +122,7 @@ namespace Bot
   struct DropDoorOnEnemy
   {
     OffsetSet doorLocations;
-    bool      waiting = true;
+    bool waiting = true;
 
     DropDoorOnEnemy(OffsetSet doorLocations_)
       : doorLocations{std::move(doorLocations_)}
@@ -140,21 +140,22 @@ namespace Bot
     }
   };
 
-  using Command  = std::variant<Explore_t,
-                                VisitTiles,
-                                Terminate_t,
-                                Visit,
-                                FetchKey,
-                                OpenDoor,
-                                FetchBoulder,
-                                DropBoulder_t,
-                                ReconsiderUncheckedBoulders_t,
-                                PlaceBoulderOnPressurePlate,
-                                Wait_t,
-                                LeaveSquare_t,
-                                DropDoorOnEnemy,
-                                Attack_t,
-                                PeekUnderEnemies>;
+  using Command = std::variant<
+    Explore_t,
+    VisitTiles,
+    Terminate_t,
+    Visit,
+    FetchKey,
+    OpenDoor,
+    FetchBoulder,
+    DropBoulder_t,
+    ReconsiderUncheckedBoulders_t,
+    PlaceBoulderOnPressurePlate,
+    Wait_t,
+    LeaveSquare_t,
+    DropDoorOnEnemy,
+    Attack_t,
+    PeekUnderEnemies>;
   using Commands = std::queue<Command>;
 
 } // namespace Bot

@@ -122,7 +122,11 @@ namespace Bot
 
     auto playerState = m_state.Lock();
     playerState->position = pos;
-    playerState->hasSword = state.hassword(); // Not really map related :-(
+
+    // Not really map related :-(
+    playerState->hasSword = state.has_hassword() && state.hassword();
+    if(state.has_health())
+      playerState->health = state.health();
 
     if(newMap != map.Get())
     {
@@ -157,7 +161,7 @@ namespace Bot
           [&](LeaveSquare_t& leaveSquare) { return LeaveSquare(leaveSquare.originalSquare); },
           [&](DropDoorOnEnemy& dropDoorOnEnemy) { return Execute(dropDoorOnEnemy); },
           [&](const Bot::PeekUnderEnemies& peekUnderEnemies) { return PeekUnderEnemies(peekUnderEnemies.tileLocations); },
-          [&](const Attack_t&) { return VisitTiles({Tile::TILE_ENEMY}); },
+          [&](Attack_t& attack) { return Attack(attack); },
         },
         commands->front());
 
@@ -565,7 +569,6 @@ namespace Bot
 
   std::expected<bool, std::string> Player::PeekUnderEnemies(const OffsetSet& tileLocations)
   {
-
     auto map = m_playerMap.Get();
     auto remaining = tileLocations | std::views::filter([&](Offset location) { return (*map)[location] == Tile::TILE_UNKNOWN; })
                    | std::ranges::to<OffsetSet>();
@@ -594,6 +597,45 @@ namespace Bot
     }
 
     return Visit(*destination);
+  }
+  std::expected<bool, std::string> Player::Attack(Attack_t&)
+  {
+    auto map = m_playerMap.Get();
+
+    if(map->enemies.inSight.empty())
+      return true;
+
+    auto state = m_state.Lock();
+
+    if(state->health <= 1)
+    {
+      std::println("Health low. Giving up");
+      return true;
+    }
+
+    auto destinationPredicate = [&](Offset p) { return map->enemies.inSight.contains(p); };
+    auto navigationParameters = map->NavigationParameters();
+    navigationParameters.avoidEnemies = false;
+    auto weights = WeightMap(*map, map->enemies, navigationParameters, destinationPredicate);
+
+    auto [dist, destination] = DistanceMap(weights, state->position, destinationPredicate);
+    if(!destination)
+      return std::unexpected("Enemies are unreachable?");
+
+    auto distance = dist[*destination];
+    if(distance != 2)
+    {
+      state->reversedPath = ReversedPath(weights, state->position, destinationPredicate);
+      state->pathLength = state->reversedPath.size();
+
+      std::expected<bool, std::string> used = StepAlongPathOrUse(state);
+      if(!used)
+        return std::unexpected(used.error());
+    }
+    else
+      state->next = DirectedAction::DIRECTED_ACTION_NONE;
+
+    return false;
   }
 
   std::expected<bool, std::string> Player::Explore()

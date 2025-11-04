@@ -69,7 +69,7 @@ namespace Bot
 
     if(!IsEngagingEnemy(m_playerState))
     {
-      if(p0state.hasSword && !enemiesInSight.empty())
+      if(p0state.hasSword && p0state.health >= 6 && !enemiesInSight.empty())
       {
         std::println("Player {}: Enemies in sight at {}. Attacking", id, enemiesInSight);
         Commands commands;

@@ -23,6 +23,7 @@ namespace Bot
     std::chrono::steady_clock::time_point lastCommandTime = std::chrono::steady_clock::now();
     bool terminateRequested = false;
     bool hasSword = false;
+    int health = 5;
   };
 
   class Player
@@ -58,6 +59,7 @@ namespace Bot
     std::expected<bool, std::string> LeaveSquare(std::optional<Offset>& originalSquare);
     std::expected<bool, std::string> Execute(DropDoorOnEnemy& dropDoorOnEnemy);
     std::expected<bool, std::string> PeekUnderEnemies(const OffsetSet& tileLocations);
+    std::expected<bool, std::string> Attack(Attack_t&);
     std::expected<bool, std::string> Explore();
     std::expected<void, std::string> UpdatePlan();
     std::expected<bool, std::string> DoCommandIfAny();
