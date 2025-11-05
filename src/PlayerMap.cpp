@@ -69,29 +69,32 @@ namespace Bot
   } // namespace
 
   Vector2d<int> WeightMap(
+    size_t index,
     const Vector2d<Tile>& map,
     const Enemies& enemies,
     const NavigationParameters& navigationParameters,
     const std::optional<Offset>& destination)
   {
     if(destination)
-      return WeightMap(map, enemies, navigationParameters, *destination);
+      return WeightMap(index, map, enemies, navigationParameters, *destination);
 
-    return WeightMap(map, enemies, navigationParameters);
+    return WeightMap(index, map, enemies, navigationParameters);
   }
 
-  Vector2d<int> WeightMap(const Vector2d<Tile>& map, const Enemies& enemies, const NavigationParameters& navigationParameters)
+  Vector2d<int>
+    WeightMap(size_t index, const Vector2d<Tile>& map, const Enemies& enemies, const NavigationParameters& navigationParameters)
   {
-    return WeightMap(map, enemies, navigationParameters, [](Offset) { return false; });
+    return WeightMap(index, map, enemies, navigationParameters, [](Offset) { return false; });
   }
 
   Vector2d<int> WeightMap(
+    size_t index,
     const Vector2d<Tile>& map,
     const Enemies& enemies,
     const NavigationParameters& navigationParameters,
     Offset destination)
   {
-    return WeightMap(map, enemies, navigationParameters, [destination](Offset p) { return p == destination; });
+    return WeightMap(index, map, enemies, navigationParameters, [destination](Offset p) { return p == destination; });
   }
 
   PlayerMap::PlayerMap(Offset size)
@@ -112,13 +115,13 @@ namespace Bot
 
   std::shared_ptr<PlayerMap> PlayerMap::Clone() const { return std::make_shared<PlayerMap>(*this); }
 
-  PlayerMap::Ptr PlayerMap::Update(Offset pos, int visibility, const Vector2d<Tile>& view) const
+  PlayerMap::Ptr PlayerMap::Update(size_t playerId, Offset pos, int visibility, const Vector2d<Tile>& view) const
   {
     MapViewCoordinateConverter const convert(pos, visibility, view);
 
     auto compareResult = Compare(view, convert);
 
-    if(compareResult.needsUpdate || enemies.inSight != compareResult.enemies || !enemies.locations.empty())
+    if(compareResult.needsUpdate || enemies.inSight[playerId] != compareResult.enemies || !enemies.locations.empty())
     {
       const auto result = std::make_shared<PlayerMap>(*this, compareResult.newMapSize);
       result->Update(view, convert);
@@ -142,7 +145,7 @@ namespace Bot
       {
         result->enemies.locations[enemy] = EnemyPenalty;
       }
-      result->enemies.inSight = compareResult.enemies;
+      result->enemies.inSight[playerId] = compareResult.enemies;
       result->uncheckedBoulders.merge(compareResult.newBoulders);
 
       return result;

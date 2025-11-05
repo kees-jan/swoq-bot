@@ -85,7 +85,7 @@ namespace Swoq
     int seed() const;
     const Swoq::Interface::State& state() const;
 
-    std::expected<void, std::string> act(Swoq::Interface::DirectedAction action);
+    std::expected<void, std::string> act(std::optional<Interface::DirectedAction> action0, std::optional<Interface::DirectedAction> action1);
 
   private:
     std::shared_ptr<Swoq::Interface::GameService::Stub> m_stub;

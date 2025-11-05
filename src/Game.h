@@ -25,6 +25,7 @@ namespace Bot
       Terminating,
       PeekingBelowEnemy,
       AttackingEnemy,
+      Inactive,
     };
 
     Game(const Swoq::GameConnection& gameConnection, std::unique_ptr<Swoq::Game> game, std::optional<int> expectedLevel);
@@ -32,26 +33,35 @@ namespace Bot
     std::expected<void, std::string> Run();
 
   private:
-    void LevelReached(int reportingPlayer, int level) override;
-    void MapUpdated(int id) override;
+    void LevelReached(int level) override;
+    void MapUpdated() override;
     void PrintDungeonMap() override;
-    void PrintMap() override;
-    void Finished(int id) override;
+    void Finished(size_t playerId) override;
+
+    size_t LeadPlayer() const;
+    size_t OtherPlayer() const;
+    PlayerState& GetPlayerState(size_t id);
+    bool IsAvailable(size_t playerId);
+    void MapUpdated(size_t playerId);
+    void SwapPlayers();
+    void CheckPlayerPresence();
 
     std::optional<DoorColor> DoorToOpen(const std::shared_ptr<const PlayerMap>& map, int id);
     std::optional<DoorColor> PressurePlateToActivate(const std::shared_ptr<const PlayerMap>& map, int id);
     OffsetSet BouldersToMove(const std::shared_ptr<const PlayerMap>& map, int id);
-    Offset ClosestUncheckedBoulder(const PlayerMap& map, int id);
-    std::optional<Offset> ClosestUnusedBoulder(const PlayerMap& map, Offset currentLocation, int id);
+    Offset ClosestUncheckedBoulder(const PlayerMap& map, size_t id);
+    std::optional<Offset> ClosestUnusedBoulder(const PlayerMap& map, Offset currentLocation, size_t id);
 
     Swoq::GameConnection m_gameConnection;
     int m_seed;
     int m_level;
     Offset m_mapSize;
     ThreadSafe<DungeonMap::Ptr> m_dungeonMap;
-    ThreadSafe<std::shared_ptr<const PlayerMap>> m_playerMap;
+    ThreadSafe<PlayerMap::Ptr> m_playerMap;
     Player m_player;
-    PlayerState m_playerState = PlayerState::Idle;
+    size_t m_leadPlayerId = 0;
+    PlayerState m_leadPlayerState = PlayerState::Idle;
+    PlayerState m_otherPlayerState = PlayerState::Idle;
     std::optional<int> m_expectedLevel;
   };
 
@@ -93,6 +103,9 @@ struct std::formatter<Bot::Game::PlayerState>
       break;
     case AttackingEnemy:
       s = "AttackingEnemy";
+      break;
+    case Inactive:
+      s = "Inactive";
       break;
     }
 

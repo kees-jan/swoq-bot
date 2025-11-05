@@ -88,14 +88,27 @@ namespace Bot
   } // namespace
 
 
+  void PlayerState::Update(const std::optional<Swoq::Interface::PlayerState>& state)
+  {
+    if(state)
+    {
+      position = state->position();
+      hasSword = state->has_hassword() && state->hassword();
+      if(state->has_health())
+        health = state->health();
+    }
+    else
+      active = false;
+  }
+
+  std::optional<DirectedAction> PlayerState::GetAction() { return active ? std::make_optional(next) : std::nullopt; }
+
   Player::Player(
-    int id,
     GameCallbacks& callbacks,
     std::unique_ptr<Swoq::Game> game,
     ThreadSafe<DungeonMap::Ptr>& dungeonMap,
     ThreadSafe<PlayerMap::Ptr>& map)
-    : m_id(id)
-    , m_callbacks(callbacks)
+    : m_callbacks(callbacks)
     , m_game(std::move(game))
     , m_dungeonMap(dungeonMap)
     , m_playerMap(map)
@@ -110,24 +123,44 @@ namespace Bot
   bool Player::UpdateMap()
   {
     const int visibility = m_game->visibility_range();
-    auto state = m_game->state().playerstate();
-    const auto& pos = state.position();
-    auto view = ViewFromState(visibility, state);
+
+    auto state0 = m_game->state().has_playerstate() ? std::make_optional(m_game->state().playerstate()) : std::nullopt;
+    const auto& pos0 = state0.transform([](const auto& state) { return state.position(); });
+    auto view0 = state0.transform([&](const auto& state) { return ViewFromState(visibility, state); });
+
+    auto state1 = m_game->state().has_player2state() ? std::make_optional(m_game->state().player2state()) : std::nullopt;
+    const auto& pos1 = state1.transform([](const auto& state) { return state.position(); });
+    auto view1 = state1.transform([&](const auto& state) { return ViewFromState(visibility, state); });
+
     {
       auto dungeonMap = m_dungeonMap.Lock();
-      dungeonMap = dungeonMap->Update(pos, visibility, view);
+      if(state0)
+      {
+        assert(pos0 && view0);
+        dungeonMap = dungeonMap->Update(*pos0, visibility, *view0);
+      }
+
+      if(state1)
+      {
+        assert(pos1 && view1);
+        dungeonMap = dungeonMap->Update(*pos1, visibility, *view1);
+      }
     }
 
     auto map = m_playerMap.Lock();
-    auto newMap = map->Update(pos, visibility, view);
+    auto newMap = map.Get();
+    if(state0)
+    {
+      newMap = newMap->Update(0, *pos0, visibility, *view0);
+    }
+    if(state1)
+    {
+      newMap = newMap->Update(1, *pos1, visibility, *view1);
+    }
 
-    auto playerState = m_state.Lock();
-    playerState->position = pos;
-
-    // Not really map related :-(
-    playerState->hasSword = state.has_hassword() && state.hassword();
-    if(state.has_health())
-      playerState->health = state.health();
+    auto playerStateArray = m_state.Lock();
+    (*playerStateArray)[0].Update(state0);
+    (*playerStateArray)[1].Update(state1);
 
     if(newMap != map.Get())
     {
@@ -139,49 +172,57 @@ namespace Bot
     return false;
   }
 
-  std::expected<bool, std::string> Player::DoCommandIfAny()
+  std::expected<bool, std::string> Player::DoCommandIfAny(size_t playerId)
   {
-    auto commands = m_commands.Lock();
-
-    std::expected<bool, std::string> result = true;
-    while(result && *result && !commands->empty())
+    if(m_state.Get()[playerId].active)
     {
-      result = std::visit(
-        Visitor{
-          [&](Explore_t) { return Explore(); },
-          [&](const Bot::VisitTiles& visitTiles) { return VisitTiles(visitTiles.tiles); },
-          [&](Terminate_t) { return TerminateRequested(); },
-          [&](const Bot::Visit& visit) { return Visit(visit.position); },
-          [&](const FetchKey& key) { return Visit(key.position); },
-          [&](Bot::OpenDoor& door) { return OpenDoor(door); },
-          [&](Bot::FetchBoulder& boulder) { return FetchBoulder(boulder); },
-          [&](DropBoulder_t& dropBoulder) { return DropBoulder(dropBoulder); },
-          [&](const ReconsiderUncheckedBoulders_t&) { return ReconsiderUncheckedBoulders(); },
-          [&](Bot::PlaceBoulderOnPressurePlate& place) { return PlaceBoulderOnPressurePlate(place); },
-          [&](const Wait_t&) { return Wait(); },
-          [&](LeaveSquare_t& leaveSquare) { return LeaveSquare(leaveSquare.originalSquare); },
-          [&](DropDoorOnEnemy& dropDoorOnEnemy) { return Execute(dropDoorOnEnemy); },
-          [&](const Bot::PeekUnderEnemies& peekUnderEnemies) { return PeekUnderEnemies(peekUnderEnemies.tileLocations); },
-          [&](Attack_t& attack) { return Attack(attack); },
-        },
-        commands->front());
+      auto commandsArray = m_commands.Lock();
+      auto& commands = (*commandsArray)[playerId];
 
-      if(!result)
-        return result;
-      if(*result)
-        commands->pop();
-    } // namespace Bot
-    assert(result);
-    assert(!*result || commands->empty());
+      std::expected<bool, std::string> result = true;
+      while(result && *result && !commands.empty())
+      {
+        result = std::visit(
+          Visitor{
+            [&](Explore_t) { return Explore(playerId); },
+            [&](const Bot::VisitTiles& visitTiles) { return VisitTiles(playerId, visitTiles.tiles); },
+            [&](Terminate_t) { return TerminateRequested(playerId); },
+            [&](const Bot::Visit& visit) { return Visit(playerId, visit.position); },
+            [&](const FetchKey& key) { return Visit(playerId, key.position); },
+            [&](Bot::OpenDoor& door) { return OpenDoor(playerId, door); },
+            [&](Bot::FetchBoulder& boulder) { return FetchBoulder(playerId, boulder); },
+            [&](DropBoulder_t& dropBoulder) { return DropBoulder(playerId, dropBoulder); },
+            [&](const ReconsiderUncheckedBoulders_t&) { return ReconsiderUncheckedBoulders(); },
+            [&](Bot::PlaceBoulderOnPressurePlate& place) { return PlaceBoulderOnPressurePlate(playerId, place); },
+            [&](const Wait_t&) { return Wait(playerId); },
+            [&](LeaveSquare_t& leaveSquare) { return LeaveSquare(playerId, leaveSquare.originalSquare); },
+            [&](DropDoorOnEnemy& dropDoorOnEnemy) { return Execute(playerId, dropDoorOnEnemy); },
+            [&](const Bot::PeekUnderEnemies& peekUnderEnemies)
+            { return PeekUnderEnemies(playerId, peekUnderEnemies.tileLocations); },
+            [&](Attack_t& attack) { return Attack(playerId, attack); },
+          },
+          commands.front());
 
-    return !commands->empty();
+        if(!result)
+          return result;
+        if(*result)
+          commands.pop();
+      } // namespace Bot
+      assert(result);
+      assert(!*result || commands.empty());
+
+      return !commands.empty();
+    }
+
+    return true;
   }
 
   bool Player::WaitForCommands()
   {
-    auto lastCommandTime = m_state.Get().lastCommandTime;
-    auto commands = m_commands.Lock();
-    return commands.WaitUntil(lastCommandTime + delay, [&] { return !commands->empty(); });
+    auto commandsArray = m_commands.Lock();
+    return commandsArray.WaitUntil(
+      m_lastCommandTime + delay,
+      [&] { return !std::ranges::all_of(*commandsArray, [](auto& commands) { return commands.empty(); }); });
   }
 
   void Player::PrintMap()
@@ -192,19 +233,30 @@ namespace Bot
       auto characterMap = map->Vector2d::Map([](Tile t) { return CharFromTile(t); });
       for(auto& [position, penalty]: map->enemies.locations)
         characterMap[position] = 'e';
-      for(auto position: map->enemies.inSight)
+      for(auto position: map->enemies.inSight | std::views::join)
         characterMap[position] = 'E';
-      auto p0state = m_state.Get();
-      Offset p0 = p0state.position;
-      characterMap[p0] = 'a';
-      for(const auto& step: p0state.reversedPath)
+      auto p0stateArray = m_state.Get();
+      auto& p0state = p0stateArray[0];
+      if(p0state.active)
       {
-        if(characterMap[step] == '.' || characterMap[step] == ' ')
+        characterMap[p0state.position] = 'A';
+        for(const auto& step: p0state.reversedPath)
         {
-          characterMap[step] = '*';
+          if(characterMap[step] == '.' || characterMap[step] == ' ')
+            characterMap[step] = '*';
         }
       }
-      std::println("Player {} map:", m_id);
+      auto& p1state = p0stateArray[1];
+      if(p1state.active)
+      {
+        characterMap[p1state.position] = 'a';
+        for(const auto& step: p1state.reversedPath)
+        {
+          if(characterMap[step] == '.' || characterMap[step] == ' ')
+            characterMap[step] = '*';
+        }
+      }
+      std::println("Player map:");
       Print(characterMap);
       std::println();
       std::println("Exit:                 {}", map->Exit());
@@ -221,21 +273,21 @@ namespace Bot
     }
   }
 
-  std::expected<void, std::string> Player::UpdatePlan()
+  std::expected<void, std::string> Player::UpdatePlan(size_t playerId)
   {
     std::expected<bool, std::string> commandDone = false;
     bool commandArrived = true;
 
     while(commandDone && !*commandDone && commandArrived)
     {
-      commandDone = DoCommandIfAny();
+      commandDone = DoCommandIfAny(playerId);
       if(!commandDone)
         return std::unexpected(commandDone.error());
 
       if(!*commandDone)
       {
-        std::println("Player {}: No commands done", m_id);
-        m_callbacks.Finished(m_id);
+        std::println("Player {}: No commands done", playerId);
+        m_callbacks.Finished(playerId);
         commandArrived = WaitForCommands();
       }
     }
@@ -243,25 +295,48 @@ namespace Bot
     assert(*commandDone || !commandArrived);
     if(!*commandDone)
     {
-      std::println("Player {}: No commands found: {}", m_id, DirectedAction::DIRECTED_ACTION_NONE);
-      auto state = m_state.Lock();
-      state->next = DirectedAction::DIRECTED_ACTION_NONE;
-      state->reversedPath.clear();
-      state->pathLength = 0;
+      auto stateArray = m_state.Lock();
+      auto& state = (*stateArray)[playerId];
+      if(state.active)
+      {
+        std::println("Player {}: No commands found: {}", playerId, DirectedAction::DIRECTED_ACTION_NONE);
+        state.next = DirectedAction::DIRECTED_ACTION_NONE;
+        state.reversedPath.clear();
+        state.pathLength = 0;
+      }
     }
 
     return {};
   }
 
-  void Player::SetCommands(Commands commands) { m_commands.Lock()->swap(commands); }
+  void Player::SetCommands(size_t playerId, Commands commands) { (*m_commands.Lock())[playerId].swap(commands); }
 
-  void Player::SetCommand(Command command)
+  void Player::SetCommand(size_t playerId, Command command)
   {
     Commands commands({command});
-    SetCommands(commands);
+    SetCommands(playerId, commands);
   }
 
-  void Player::InitializeCommands() { SetCommands({}); }
+  void Player::FirstDo(size_t playerId, Commands commands)
+  {
+    auto commandsArray = m_commands.Lock();
+    auto& currentCommands = (*commandsArray)[playerId];
+
+    while(!currentCommands.empty())
+    {
+      commands.push(std::move(currentCommands.front()));
+      currentCommands.pop();
+    }
+    currentCommands.swap(commands);
+  }
+
+  void Player::FirstDo(size_t playerId, Command command)
+  {
+    Commands commands({command});
+    FirstDo(playerId, commands);
+  }
+
+  void Player::InitializeCommands() { m_commands.Lock() = {}; }
 
   void Player::InitializeMap()
   {
@@ -277,15 +352,37 @@ namespace Bot
     map = newMap;
   }
 
+  void Player::InitializeState()
+  {
+    auto stateArray = m_state.Lock();
+    stateArray = {};
+    auto state = m_game->state();
+
+    if(state.has_playerstate())
+    {
+      auto& player0 = (*stateArray)[0];
+      player0.playerId = 0;
+      player0.active = true;
+    }
+
+    if(state.has_player2state())
+    {
+      auto& player1 = (*stateArray)[1];
+      player1.playerId = 1;
+      player1.active = true;
+    }
+  }
+
   void Player::InitializeLevel()
   {
     InitializeMap();
     InitializeCommands();
+    InitializeState();
   }
 
-  std::expected<void, std::string> Player::StepAlongPath(ThreadSafeProxy<PlayerState>& state)
+  std::expected<void, std::string> Player::StepAlongPath(PlayerState& state)
   {
-    auto direction = state->reversedPath.back() - state->position;
+    auto direction = state.reversedPath.back() - state.position;
     auto action = ActionFromDirection(direction);
     if(!action)
     {
@@ -293,21 +390,21 @@ namespace Bot
     }
 
     std::println(
-      "Player: {}, tick: {}, action: {} because position is {} and next is {}",
-      m_id,
+      "Player {}: tick: {}, action: {} because position is {} and next is {}",
+      state.playerId,
       m_game->state().tick(),
       *action,
-      state->position,
-      state->reversedPath.back());
+      state.position,
+      state.reversedPath.back());
 
-    state->next = *action;
+    state.next = *action;
     return {};
   }
 
-  std::expected<bool, std::string> Player::StepAlongPathOrUse(ThreadSafeProxy<PlayerState>& state)
+  std::expected<bool, std::string> Player::StepAlongPathOrUse(PlayerState& state)
   {
-    auto direction = state->reversedPath.back() - state->position;
-    bool use = state->pathLength == 1;
+    auto direction = state.reversedPath.back() - state.position;
+    bool use = state.pathLength == 1;
     auto action = use ? UseFromDirection(direction) : ActionFromDirection(direction);
     if(!action)
     {
@@ -316,19 +413,19 @@ namespace Bot
 
     std::println(
       "Player: {}, tick: {}, action: {} because position is {} and next is {}",
-      m_id,
+      state.playerId,
       m_game->state().tick(),
       *action,
-      state->position,
-      state->reversedPath.back());
+      state.position,
+      state.reversedPath.back());
 
-    state->next = *action;
+    state.next = *action;
     return use;
   }
 
-  std::expected<bool, std::string> Player::MoveToDestination(ThreadSafeProxy<PlayerState>& state)
+  std::expected<bool, std::string> Player::MoveToDestination(PlayerState& state)
   {
-    if(!state->reversedPath.empty())
+    if(!state.reversedPath.empty())
     {
       auto result = StepAlongPath(state);
       if(!result)
@@ -337,12 +434,12 @@ namespace Bot
       }
     }
 
-    return state->pathLength == 0;
+    return state.pathLength == 0;
   }
 
-  std::expected<bool, std::string> Player::MoveToDestination(ThreadSafeProxy<PlayerState>& state, Offset destination)
+  std::expected<bool, std::string> Player::MoveToDestination(PlayerState& state, Offset destination)
   {
-    if(!state->reversedPath.empty())
+    if(!state.reversedPath.empty())
     {
       auto result = StepAlongPath(state);
       if(!result)
@@ -352,56 +449,56 @@ namespace Bot
 
       return false;
     }
-
-    if(state->position == destination)
+    if(state.position == destination)
       return true;
-
     return std::unexpected("Destination unreachable");
   }
 
-  std::expected<bool, std::string> Player::VisitTiles(const std::set<Tile>& tiles)
+  std::expected<bool, std::string> Player::VisitTiles(size_t playerId, const std::set<Tile>& tiles)
   {
     auto map = m_playerMap.Get();
     return ComputePathAndThen(
+      playerId,
       map,
       [&map = *map, &tiles](Offset p) { return tiles.contains(map[p]); },
-      [&](auto& state) { return MoveToDestination(state); });
+      [&](PlayerState& state) { return MoveToDestination(state); });
   }
 
-  std::expected<bool, std::string> Player::Visit(Offset destination)
+  std::expected<bool, std::string> Player::Visit(size_t playerId, Offset destination)
   {
     return ComputePathAndThen(
+      playerId,
       m_playerMap.Get(),
       destination,
       [destination](Offset p) { return p == destination; },
-      [&](auto& state) { return MoveToDestination(state, destination); });
+      [&](PlayerState& state) { return MoveToDestination(state, destination); });
   }
 
 
-  std::expected<bool, std::string> Player::MoveAlongPathThenOpenDoor(ThreadSafeProxy<PlayerState>& state, Bot::OpenDoor& door)
+  std::expected<bool, std::string> Player::MoveAlongPathThenOpenDoor(PlayerState& state, Bot::OpenDoor& door)
   {
     return MoveAlongPathThenUse(
       state,
       door,
       [&]()
       {
-        std::println("Player {}: Opened door of color {}", m_id, door.color);
+        std::println("Player {}: Opened door of color {}", state.playerId, door.color);
         UpdateMap([&](auto map) { map->NavigationParameters().doorParameters.at(door.color).avoidDoor = false; });
       });
   }
 
   std::expected<bool, std::string> Player::MoveAlongPathThenUse(
-    ThreadSafeProxy<PlayerState>& state,
+    PlayerState& state,
     std::shared_ptr<const PlayerMap> map,
     Tile expectedTileAfterUse,
     std::string_view message)
   {
-    if(!state->reversedPath.empty())
+    if(!state.reversedPath.empty())
     {
-      auto destination = state->reversedPath.front();
+      auto destination = state.reversedPath.front();
       if((*map)[destination] == expectedTileAfterUse)
       {
-        std::println("Player {}: Finished {}", m_id, message);
+        std::println("Player {}: Finished {}", state.playerId, message);
         return true;
       }
 
@@ -419,23 +516,25 @@ namespace Bot
     return false;
   }
 
-  std::expected<bool, std::string> Player::OpenDoor(Bot::OpenDoor& door)
+  std::expected<bool, std::string> Player::OpenDoor(size_t playerId, Bot::OpenDoor& door)
   {
     return ComputePathAndThen(
+      playerId,
       m_playerMap.Get(),
       door.position,
       [&](Offset p) { return p == door.position; },
-      [&](auto& state) { return MoveAlongPathThenOpenDoor(state, door); });
+      [&](PlayerState& state) { return MoveAlongPathThenOpenDoor(state, door); });
   }
 
-  std::expected<bool, std::string> Player::FetchBoulder(Bot::FetchBoulder& fetchBoulder)
+  std::expected<bool, std::string> Player::FetchBoulder(size_t playerId, Bot::FetchBoulder& fetchBoulder)
   {
     auto boulderPosition = fetchBoulder.position;
     return ComputePathAndThen(
+      playerId,
       m_playerMap.Get(),
       boulderPosition,
       [&](Offset p) { return p == boulderPosition; },
-      [&](auto& state)
+      [&](PlayerState& state)
       {
         return MoveAlongPathThenUse(
           state,
@@ -453,34 +552,37 @@ namespace Bot
       });
   }
 
-  std::expected<bool, std::string> Player::DropBoulder(Bot::DropBoulder_t& dropBoulder)
+  std::expected<bool, std::string> Player::DropBoulder(size_t playerId, Bot::DropBoulder_t& dropBoulder)
   {
     auto map = m_playerMap.Get();
-    auto myLocation = m_state.Get().position;
+    auto myLocation = m_state.Get()[playerId].position;
     return ComputePathAndThen(
+      playerId,
       map,
       [&](Offset p) { return (*map)[p] == Tile::TILE_EMPTY && map->IsGoodBoulder(p) && p != myLocation; },
-      [&](auto& state) -> std::expected<bool, std::string>
+      [&](PlayerState& state) -> std::expected<bool, std::string>
       {
         return MoveAlongPathThenUse(
           state,
           dropBoulder,
           [&]()
           {
-            auto destination = state->reversedPath.front();
+            auto destination = state.reversedPath.front();
             std::println("DropBoulder: About to drop boulder at {}", destination);
           });
       });
   }
 
-  std::expected<bool, std::string> Player::PlaceBoulderOnPressurePlate(Bot::PlaceBoulderOnPressurePlate& placeBoulder)
+  std::expected<bool, std::string>
+    Player::PlaceBoulderOnPressurePlate(size_t playerId, Bot::PlaceBoulderOnPressurePlate& placeBoulder)
   {
     auto pressurePlatePosition = placeBoulder.position;
     return ComputePathAndThen(
+      playerId,
       m_playerMap.Get(),
       pressurePlatePosition,
       [&](Offset p) { return p == pressurePlatePosition; },
-      [&](auto& state) -> std::expected<bool, std::string>
+      [&](PlayerState& state) -> std::expected<bool, std::string>
       {
         return MoveAlongPathThenUse(
           state,
@@ -511,23 +613,25 @@ namespace Bot
     return true;
   }
 
-  std::expected<bool, std::string> Player::TerminateRequested()
+  std::expected<bool, std::string> Player::TerminateRequested(size_t playerId)
   {
-    std::println("Player {}: Terminate requested", m_id);
-    m_state.Lock()->terminateRequested = true;
+    std::println("Player {}: Terminate requested", playerId);
+    m_terminateRequested = true;
     return false;
   }
 
-  std::expected<bool, std::string> Player::Wait()
+  std::expected<bool, std::string> Player::Wait(size_t playerId)
   {
-    m_state.Lock()->next = DirectedAction::DIRECTED_ACTION_NONE;
+    auto stateArray = m_state.Lock();
+    auto& state = (*stateArray)[playerId];
+    state.next = DirectedAction::DIRECTED_ACTION_NONE;
     return false;
   }
 
-  std::expected<bool, std::string> Player::LeaveSquare()
+  std::expected<bool, std::string> Player::LeaveSquare(size_t playerId)
   {
     std::optional<Offset> dummy;
-    auto result = LeaveSquare(dummy);
+    auto result = LeaveSquare(playerId, dummy);
     if(result)
     {
       assert(!*result);
@@ -535,9 +639,9 @@ namespace Bot
     return result;
   }
 
-  std::expected<bool, std::string> Player::LeaveSquare(std::optional<Offset>& originalSquare)
+  std::expected<bool, std::string> Player::LeaveSquare(size_t playerId, std::optional<Offset>& originalSquare)
   {
-    auto position = m_state.Get().position;
+    auto position = m_state.Get()[playerId].position;
     if(!originalSquare)
     {
       originalSquare = position;
@@ -548,10 +652,13 @@ namespace Bot
     }
 
     return ComputePathAndThen(
-      m_playerMap.Get(), [position](Offset p) { return p != position; }, [&](auto& state) { return MoveToDestination(state); });
+      playerId,
+      m_playerMap.Get(),
+      [position](Offset p) { return p != position; },
+      [&](PlayerState& state) { return MoveToDestination(state); });
   }
 
-  std::expected<bool, std::string> Player::Execute(DropDoorOnEnemy& dropDoorOnEnemy)
+  std::expected<bool, std::string> Player::Execute(size_t playerId, DropDoorOnEnemy& dropDoorOnEnemy)
   {
     auto map = m_playerMap.Get();
     if(dropDoorOnEnemy.waiting)
@@ -560,25 +667,26 @@ namespace Bot
       if(std::ranges::find_first_of(enemies, dropDoorOnEnemy.doorLocations) != std::ranges::end(enemies))
       {
         dropDoorOnEnemy.waiting = false;
-        return LeaveSquare();
+        return LeaveSquare(playerId);
       }
-      return Wait();
+      return Wait(playerId);
     }
 
     return true;
   }
 
-  std::expected<bool, std::string> Player::PeekUnderEnemies(const OffsetSet& tileLocations)
+  std::expected<bool, std::string> Player::PeekUnderEnemies(size_t playerId, const OffsetSet& tileLocations)
   {
     auto map = m_playerMap.Get();
     auto remaining = tileLocations | std::views::filter([&](Offset location) { return (*map)[location] == Tile::TILE_UNKNOWN; })
                    | std::ranges::to<OffsetSet>();
 
-    auto state = m_state.Get();
+    auto stateCopy = m_state.Get();
+    auto& state = stateCopy[playerId];
     auto destinationPredicate = [&](Offset p) { return remaining.contains(p); };
     auto navigationParameters = map->NavigationParameters();
     navigationParameters.avoidEnemies = false;
-    auto weights = WeightMap(*map, map->enemies, navigationParameters, destinationPredicate);
+    auto weights = WeightMap(playerId, *map, map->enemies, navigationParameters, destinationPredicate);
 
     auto [dist, destination] = DistanceMap(weights, state.position, destinationPredicate);
     if(!destination)
@@ -589,64 +697,61 @@ namespace Bot
     if(map->enemies.locations.contains(*destination))
     {
       if(distance == 1)
-        return LeaveSquare();
+        return LeaveSquare(playerId);
 
       if(distance >= 3)
-        return Visit(*destination);
+        return Visit(playerId, *destination);
 
-      return Wait();
+      return Wait(playerId);
     }
 
-    return Visit(*destination);
+    return Visit(playerId, *destination);
   }
-  std::expected<bool, std::string> Player::Attack(Attack_t&)
+  std::expected<bool, std::string> Player::Attack(size_t playerId, Attack_t&)
   {
     auto map = m_playerMap.Get();
-
-    if(map->enemies.inSight.empty())
+    if(map->enemies.inSight[playerId].empty())
       return true;
-
-    auto state = m_state.Lock();
-
-    if(state->health <= 1)
+    auto stateArray = m_state.Lock();
+    auto& state = (*stateArray)[playerId];
+    if(state.health <= 1)
     {
       std::println("Health low. Giving up");
       return true;
     }
 
-    auto destinationPredicate = [&](Offset p) { return map->enemies.inSight.contains(p); };
+    auto destinationPredicate = [&](Offset p) { return map->enemies.inSight[playerId].contains(p); };
     auto navigationParameters = map->NavigationParameters();
     navigationParameters.avoidEnemies = false;
-    auto weights = WeightMap(*map, map->enemies, navigationParameters, destinationPredicate);
+    auto weights = WeightMap(playerId, *map, map->enemies, navigationParameters, destinationPredicate);
 
-    auto [dist, destination] = DistanceMap(weights, state->position, destinationPredicate);
+    auto [dist, destination] = DistanceMap(weights, state.position, destinationPredicate);
     if(!destination)
       return std::unexpected("Enemies are unreachable?");
 
     auto distance = dist[*destination];
     if(distance != 2)
     {
-      state->reversedPath = ReversedPath(weights, state->position, destinationPredicate);
-      state->pathLength = state->reversedPath.size();
-
+      state.reversedPath = ReversedPath(weights, state.position, destinationPredicate);
+      state.pathLength = state.reversedPath.size();
       std::expected<bool, std::string> used = StepAlongPathOrUse(state);
       if(!used)
         return std::unexpected(used.error());
     }
     else
-      state->next = DirectedAction::DIRECTED_ACTION_NONE;
-
+      state.next = DirectedAction::DIRECTED_ACTION_NONE;
     return false;
   }
 
-  std::expected<bool, std::string> Player::Explore()
+  std::expected<bool, std::string> Player::Explore(size_t playerId)
   {
     std::set tiles{Tile::TILE_UNKNOWN, Tile::TILE_HEALTH};
-    auto state = m_state.Get();
+    auto stateArray = m_state.Get();
+    auto& state = stateArray[playerId];
     if(!state.hasSword)
       tiles.insert(Tile::TILE_SWORD);
 
-    return VisitTiles(tiles);
+    return VisitTiles(playerId, tiles);
   }
 
   std::expected<void, std::string> Player::Run()
@@ -657,35 +762,37 @@ namespace Bot
       auto level = m_game->state().level();
       if(level != m_level)
       {
-        m_callbacks.LevelReached(m_id, level);
+        m_callbacks.LevelReached(level);
         m_level = level;
         InitializeLevel();
       }
 
       if(UpdateMap())
       {
-        m_callbacks.MapUpdated(m_id);
+        m_callbacks.MapUpdated();
       }
-      auto finished = UpdatePlan();
-      if(!finished)
+      auto updateResult = UpdatePlan(0).and_then([&] { return UpdatePlan(1); });
+      if(!updateResult)
       {
-        return std::unexpected(finished.error());
+        return std::unexpected(updateResult.error());
       }
 
-      m_callbacks.PrintMap();
       PrintMap();
 
-      auto state = m_state.Lock();
-      if(state->terminateRequested)
+      if(m_terminateRequested)
       {
-        std::println("Player {}: Terminating", m_id);
+        std::println("Player: Terminating");
         return {};
       }
-      auto result = m_game->act(state->next);
-      state->lastCommandTime = std::chrono::steady_clock::now();
+
+      auto stateArray = m_state.Lock();
+      auto& state0 = (*stateArray)[0];
+      auto& state1 = (*stateArray)[1];
+      auto result = m_game->act(state0.GetAction(), state1.GetAction());
+      m_lastCommandTime = std::chrono::steady_clock::now();
       if(!result)
       {
-        std::println("Player {}: Action failed: {}", m_id, result.error());
+        std::println("Player: Action failed: {}", result.error());
         return std::unexpected("Action failed");
       }
     }

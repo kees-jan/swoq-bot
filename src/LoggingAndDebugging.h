@@ -2,7 +2,6 @@
 
 namespace Bot::Debugging
 {
-  constexpr bool PrintGameMaps = false;
   constexpr bool PrintDungeonMaps = false;
   constexpr bool PrintPlayerMaps = false;
   constexpr bool PrintPlayerMapsAsTiles = false;

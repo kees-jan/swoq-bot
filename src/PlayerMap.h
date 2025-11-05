@@ -54,7 +54,7 @@ namespace Bot
   struct Enemies
   {
     OffsetMap<int> locations{};
-    OffsetSet inSight{};
+    std::array<OffsetSet, 2> inSight{};
   };
 
   struct TileComparisonResult
@@ -113,7 +113,7 @@ namespace Bot
     explicit PlayerMap(Offset size = {0, 0});
     PlayerMap(const PlayerMap& other, Offset newSize);
     std::shared_ptr<PlayerMap> Clone() const;
-    [[nodiscard]] Ptr Update(Offset pos, int visibility, const Vector2d<Tile>& view) const;
+    [[nodiscard]] Ptr Update(size_t playerId, Offset pos, int visibility, const Vector2d<Tile>& view) const;
 
     [[nodiscard]] std::optional<Offset> Exit() const { return m_exit; }
     [[nodiscard]] const DoorMap& DoorData() const;
@@ -201,13 +201,16 @@ namespace Bot
     }
   }
 
-  Vector2d<int> WeightMap(const Vector2d<Tile>& map, const Enemies& enemies, const NavigationParameters& navigationParameters);
+  Vector2d<int>
+    WeightMap(size_t index, const Vector2d<Tile>& map, const Enemies& enemies, const NavigationParameters& navigationParameters);
   Vector2d<int> WeightMap(
+    size_t index,
     const Vector2d<Tile>& map,
     const Enemies& enemies,
     const NavigationParameters& navigationParameters,
     Offset destination);
   Vector2d<int> WeightMap(
+    size_t index,
     const Vector2d<Tile>& map,
     const Enemies& enemies,
     const NavigationParameters& navigationParameters,
@@ -216,6 +219,7 @@ namespace Bot
   template <typename Callable>
     requires std::is_invocable_v<Callable, Offset>
   Vector2d<int> WeightMap(
+    size_t playerId,
     const Vector2d<Tile>& map,
     const Enemies& enemies,
     const NavigationParameters& navigationParameters,
@@ -236,11 +240,11 @@ namespace Bot
           : 1;
     }
     if(navigationParameters.avoidEnemies)
-      AvoidEnemies(enemies.inSight, weights, std::forward<Callable>(callable));
+      AvoidEnemies(enemies.inSight[playerId], weights, std::forward<Callable>(callable));
 
     if constexpr(Debugging::PrintWeightMap)
     {
-      std::println("Weight map:");
+      std::println("Weight map {}:", playerId);
       Print(weights);
     }
     return weights;
@@ -322,5 +326,15 @@ struct std::formatter<Bot::DoorParameters>
   auto format(const Bot::DoorParameters& parameters, std::format_context& ctx) const
   {
     return std::format_to(ctx.out(), "{}", parameters.avoidDoor);
+  }
+};
+
+template <>
+struct std::formatter<Bot::Enemies>
+{
+  constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin(); }
+  auto format(const Bot::Enemies& enemies, std::format_context& ctx) const
+  {
+    return std::format_to(ctx.out(), "{{InSight: {}, Locations:{}}}", enemies.inSight, enemies.locations);
   }
 };

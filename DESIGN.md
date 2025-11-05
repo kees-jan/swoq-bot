@@ -56,6 +56,20 @@ strict digraph ThePlan {
 11. Two enemies, one of which behind a door. Both enemies have keys. Be sure to collect sufficient hearts
 12. One enemy which has the key to unlock my colleague. Huge distance between sword and heart. Danger ;-)
 
+# Ways to make progress
+
+* Go to the exit (as a pair)
+* Open a door with a key
+* Put a boulder on a pressureplate
+* Moving a "bad" boulder
+
+# Things to try
+
+* Explore
+* Stand on a pressureplate
+  * Pressureplate in sight of a door. Drop the door on the enemy
+* Kill an enemy
+  (So far (L12), only one enemy was accessible at any one time.)
 
 # "Game" state
 ```plantuml
