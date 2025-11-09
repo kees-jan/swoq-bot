@@ -204,7 +204,7 @@ namespace Bot
   Vector2d<int>
     WeightMap(size_t index, const Vector2d<Tile>& map, const Enemies& enemies, const NavigationParameters& navigationParameters);
   Vector2d<int> WeightMap(
-    size_t index,
+    size_t playerId,
     const Vector2d<Tile>& map,
     const Enemies& enemies,
     const NavigationParameters& navigationParameters,

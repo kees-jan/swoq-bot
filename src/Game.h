@@ -51,6 +51,7 @@ namespace Bot
     OffsetSet BouldersToMove(const std::shared_ptr<const PlayerMap>& map, int id);
     Offset ClosestUncheckedBoulder(const PlayerMap& map, size_t id);
     std::optional<Offset> ClosestUnusedBoulder(const PlayerMap& map, Offset currentLocation, size_t id);
+    bool ExitIsReachable(const PlayerMap& map);
 
     Swoq::GameConnection m_gameConnection;
     int m_seed;

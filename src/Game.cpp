@@ -3,6 +3,8 @@
 #include <print>
 #include <ranges>
 
+#include <sys/stat.h>
+
 #include "Dijkstra.h"
 #include "LoggingAndDebugging.h"
 
@@ -159,11 +161,13 @@ namespace Bot
       std::optional<DoorColor> doorToOpen = DoorToOpen(map, playerId);
       std::optional<DoorColor> pressurePlateToActivate = PressurePlateToActivate(map, playerId);
       OffsetSet bouldersToMove = BouldersToMove(map, playerId);
+      bool exitIsReachable = ExitIsReachable(*map);
       std::println(
-        "Player {}: Playerstate: {}, exit: {}, door to open: {}, pressureplate to activate: {}, boulders to check: {}",
+        "Player {}: Playerstate: {}, exit: {} (reachable: {}), door to open: {}, pressureplate to activate: {}, boulders to check: {}",
         playerId,
         playerState,
         map->Exit(),
+        exitIsReachable,
         doorToOpen,
         pressurePlateToActivate,
         bouldersToMove);
@@ -257,11 +261,25 @@ namespace Bot
               m_player.SetCommands(playerId, commands);
             }
           }
-          else if(map->Exit())
+          else if(map->Exit() && exitIsReachable)
           {
             std::println("Going to the exit");
-            m_player.SetCommand(playerId, Visit(*map->Exit()));
-            playerState = PlayerState::MovingToExit;
+            auto stateArray = m_player.State();
+            if(!stateArray[LeadPlayer()].active)
+            {
+              SwapPlayers();
+            }
+            auto leadPlayer = LeadPlayer();
+            assert(stateArray[leadPlayer].active);
+            m_player.SetCommand(leadPlayer, Visit(*map->Exit()));
+            m_leadPlayerState = PlayerState::MovingToExit;
+
+            auto otherPlayer = OtherPlayer();
+            if(stateArray[otherPlayer].active)
+            {
+              m_player.SetCommand(OtherPlayer(), Visit(*map->Exit()));
+              m_otherPlayerState = PlayerState::MovingToExit;
+            }
           }
           else
           {
@@ -350,6 +368,28 @@ namespace Bot
     auto [dist, boulderPosition] = DistanceMap(weights, currentLocation, destination);
 
     return boulderPosition;
+  }
+
+  bool Game::ExitIsReachable(const PlayerMap& map)
+  {
+    if(!map.Exit())
+      return false;
+
+    auto stateArray = m_player.State();
+    bool reachable = true;
+    Offset exit = *map.Exit();
+
+    for(const auto& state: stateArray)
+    {
+      if(state.active)
+      {
+        auto weights = WeightMap(state.playerId, map, map.enemies, map.NavigationParameters(), exit);
+        auto path = ReversedPath(weights, state.position, [&](Offset p) { return p == exit; });
+        reachable = reachable && !path.empty();
+      }
+    }
+
+    return reachable;
   }
 
 } // namespace Bot

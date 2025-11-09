@@ -88,13 +88,13 @@ namespace Bot
   }
 
   Vector2d<int> WeightMap(
-    size_t index,
+    size_t playerId,
     const Vector2d<Tile>& map,
     const Enemies& enemies,
     const NavigationParameters& navigationParameters,
     Offset destination)
   {
-    return WeightMap(index, map, enemies, navigationParameters, [destination](Offset p) { return p == destination; });
+    return WeightMap(playerId, map, enemies, navigationParameters, [destination](Offset p) { return p == destination; });
   }
 
   PlayerMap::PlayerMap(Offset size)

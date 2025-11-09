@@ -90,9 +90,13 @@ namespace Bot
 
   void PlayerState::Update(const std::optional<Swoq::Interface::PlayerState>& state)
   {
-    if(state)
+    auto newPosition = state.transform([](const auto& s) -> Offset { return s.position(); }).value_or(Offset(-1, -1));
+
+    if(state && newPosition.x >= 0 && newPosition.y >= 0)
     {
-      position = state->position();
+      position = newPosition;
+      std::println("Player {} at position {}", playerId, position);
+      assert(position.x >= 0 && position.y >= 0);
       hasSword = state->has_hassword() && state->hassword();
       if(state->has_health())
         health = state->health();
@@ -349,6 +353,18 @@ namespace Bot
     {
       cell = Tile::TILE_EMPTY;
     }
+    if(m_game->state().has_player2state())
+    {
+      auto state2 = m_game->state().player2state();
+      auto pos2 = state2.position();
+      newMap = std::make_shared<PlayerMap>(*newMap, max(pos2 + 2 * One, map->Size()));
+      auto& cell2 = (*newMap)[pos2];
+      if(cell2 == Tile::TILE_UNKNOWN)
+      {
+        cell2 = Tile::TILE_EMPTY;
+      }
+    }
+
     map = newMap;
   }
 
