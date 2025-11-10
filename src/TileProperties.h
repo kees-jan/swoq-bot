@@ -16,6 +16,7 @@ namespace Bot
     bool mustBeMapped;
     bool isDoor;
     bool canMove;
+    bool isItem;
 
     constexpr static TileProperties_t Default()
     {
@@ -26,6 +27,7 @@ namespace Bot
         .mustBeMapped = true,
         .isDoor = false,
         .canMove = false,
+        .isItem = false,
       };
     }
     constexpr static TileProperties_t Player()
@@ -37,6 +39,7 @@ namespace Bot
         .mustBeMapped = false,
         .isDoor = false,
         .canMove = true,
+        .isItem = false,
       };
     }
     constexpr static TileProperties_t Wall()
@@ -48,6 +51,7 @@ namespace Bot
         .mustBeMapped = true,
         .isDoor = false,
         .canMove = false,
+        .isItem = false,
       };
     }
     constexpr static TileProperties_t Door()
@@ -59,6 +63,7 @@ namespace Bot
         .mustBeMapped = true,
         .isDoor = true,
         .canMove = false,
+        .isItem = false,
       };
     }
     constexpr static TileProperties_t Item()
@@ -70,6 +75,7 @@ namespace Bot
         .mustBeMapped = true,
         .isDoor = false,
         .canMove = false,
+        .isItem = true,
       };
     }
     constexpr static TileProperties_t Enemy()
@@ -81,9 +87,9 @@ namespace Bot
         .mustBeMapped = false,
         .isDoor = false,
         .canMove = true,
+        .isItem = false,
       };
     }
-    constexpr static TileProperties_t Yada() { return {}; }
   };
 
   const std::map<Tile, TileProperties_t> TileProperties{
@@ -123,4 +129,5 @@ namespace Bot
   inline bool CanBePickedUp(Tile tile) { return TileProperties.at(tile).canBePickedUp; }
   inline bool CanMove(Tile tile) { return TileProperties.at(tile).canMove; }
   inline bool IsDoor(Tile tile) { return TileProperties.at(tile).isDoor; }
+  inline bool IsItem(Tile tile) { return TileProperties.at(tile).isItem; }
 } // namespace Bot

@@ -69,25 +69,6 @@ namespace Bot
   } // namespace
 
   Vector2d<int> WeightMap(
-    size_t index,
-    const Vector2d<Tile>& map,
-    const Enemies& enemies,
-    const NavigationParameters& navigationParameters,
-    const std::optional<Offset>& destination)
-  {
-    if(destination)
-      return WeightMap(index, map, enemies, navigationParameters, *destination);
-
-    return WeightMap(index, map, enemies, navigationParameters);
-  }
-
-  Vector2d<int>
-    WeightMap(size_t index, const Vector2d<Tile>& map, const Enemies& enemies, const NavigationParameters& navigationParameters)
-  {
-    return WeightMap(index, map, enemies, navigationParameters, [](Offset) { return false; });
-  }
-
-  Vector2d<int> WeightMap(
     size_t playerId,
     const Vector2d<Tile>& map,
     const Enemies& enemies,

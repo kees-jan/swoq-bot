@@ -95,22 +95,9 @@ namespace Bot
     std::expected<bool, std::string>
       ComputePathAndThen(size_t playerId, const std::shared_ptr<const PlayerMap>& map, Predicate&& predicate, Callable&& callable)
     {
-      return ComputePathAndThen(
-        playerId, map, std::nullopt, std::forward<Predicate>(predicate), std::forward<Callable>(callable));
-    }
-
-    template <typename Predicate, typename Callable>
-      requires std::is_invocable_v<Predicate, Offset> && std::is_invocable_v<Callable, PlayerState&>
-    std::expected<bool, std::string> ComputePathAndThen(
-      size_t playerId,
-      const std::shared_ptr<const PlayerMap>& map,
-      std::optional<Offset> destination,
-      Predicate&& predicate,
-      Callable&& callable)
-    {
       auto stateArrayProxy = m_state.Lock();
       auto& state = (*stateArrayProxy)[playerId];
-      auto weights = WeightMap(playerId, *map, map->enemies, map->NavigationParameters(), destination);
+      auto weights = WeightMap(playerId, *map, map->enemies, map->NavigationParameters(), predicate);
       state.reversedPath = ReversedPath(weights, state.position, std::forward<Predicate>(predicate));
       state.pathLength = state.reversedPath.size();
 

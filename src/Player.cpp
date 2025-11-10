@@ -493,7 +493,6 @@ namespace Bot
     return ComputePathAndThen(
       playerId,
       m_playerMap.Get(),
-      destination,
       [destination](Offset p) { return p == destination; },
       [&](PlayerState& state) { return MoveToDestination(state, destination); });
   }
@@ -553,7 +552,6 @@ namespace Bot
     return ComputePathAndThen(
       playerId,
       m_playerMap.Get(),
-      door.position,
       [&](Offset p) { return p == door.position; },
       [&](PlayerState& state) { return MoveAlongPathThenOpenDoor(state, door); });
   }
@@ -564,7 +562,6 @@ namespace Bot
     return ComputePathAndThen(
       playerId,
       m_playerMap.Get(),
-      boulderPosition,
       [&](Offset p) { return p == boulderPosition; },
       [&](PlayerState& state)
       {
@@ -612,7 +609,6 @@ namespace Bot
     return ComputePathAndThen(
       playerId,
       m_playerMap.Get(),
-      pressurePlatePosition,
       [&](Offset p) { return p == pressurePlatePosition; },
       [&](PlayerState& state) -> std::expected<bool, std::string>
       {

@@ -202,20 +202,12 @@ namespace Bot
     }
   }
 
-  Vector2d<int>
-    WeightMap(size_t index, const Vector2d<Tile>& map, const Enemies& enemies, const NavigationParameters& navigationParameters);
   Vector2d<int> WeightMap(
     size_t playerId,
     const Vector2d<Tile>& map,
     const Enemies& enemies,
     const NavigationParameters& navigationParameters,
     Offset destination);
-  Vector2d<int> WeightMap(
-    size_t index,
-    const Vector2d<Tile>& map,
-    const Enemies& enemies,
-    const NavigationParameters& navigationParameters,
-    const std::optional<Offset>& destination);
 
   template <typename Callable>
     requires std::is_invocable_v<Callable, Offset>
@@ -236,7 +228,7 @@ namespace Bot
         (!std::invoke(std::forward<Callable>(callable), offset)
          && (tile == Tile::TILE_WALL || tile == Tile::TILE_BOULDER
              || tile == Tile::TILE_ENEMY
-             || (IsDoor(tile) && navigationParameters.doorParameters.at(DoorKeyPlateColor(tile)).avoidDoor) || IsKey(tile)))
+             || (IsDoor(tile) && navigationParameters.doorParameters.at(DoorKeyPlateColor(tile)).avoidDoor) || IsItem(tile)))
           ? Inf
           : 1;
     }
