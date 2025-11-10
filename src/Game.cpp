@@ -117,6 +117,20 @@ namespace Bot
     }
   }
 
+  OffsetSet Game::OriginalEnemyLocations()
+  {
+    auto map = m_dungeonMap.Get();
+    OffsetSet enemyLocations;
+    for(const auto offset: OffsetsInRectangle(map->Size()))
+    {
+      if((*map)[offset] == Tile::TILE_ENEMY)
+      {
+        enemyLocations.insert(offset);
+      }
+    }
+    return enemyLocations;
+  }
+
   void Game::MapUpdated()
   {
     CheckPlayerPresence();
@@ -162,15 +176,19 @@ namespace Bot
       std::optional<DoorColor> pressurePlateToActivate = PressurePlateToActivate(map, playerId);
       OffsetSet bouldersToMove = BouldersToMove(map, playerId);
       bool exitIsReachable = ExitIsReachable(*map);
+      OffsetSet originalEnemyLocations = OriginalEnemyLocations();
+      size_t enemiesAlive = originalEnemyLocations.size() - map->enemies.killed;
+
       std::println(
-        "Player {}: Playerstate: {}, exit: {} (reachable: {}), door to open: {}, pressureplate to activate: {}, boulders to check: {}",
+        "Player {}: Playerstate: {}, exit: {} (reachable: {}), door to open: {}, pressureplate to activate: {}, boulders to check: {}, enemies alive: {}",
         playerId,
         playerState,
         map->Exit(),
         exitIsReachable,
         doorToOpen,
         pressurePlateToActivate,
-        bouldersToMove);
+        bouldersToMove,
+        enemiesAlive);
 
       if(playerState == PlayerState::MovingBoulder)
       {
@@ -280,6 +298,13 @@ namespace Bot
               m_player.SetCommand(OtherPlayer(), Visit(*map->Exit()));
               m_otherPlayerState = PlayerState::MovingToExit;
             }
+          }
+          else if(enemiesAlive > 0)
+          {
+            std::println("Player {}: {} enemies still alive. Hunting them down", playerId, enemiesAlive);
+            m_player.SetCommand(playerId, HuntEnemies(originalEnemyLocations));
+
+            playerState = PlayerState::HuntingEnemies;
           }
           else
           {

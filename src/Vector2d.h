@@ -11,6 +11,12 @@
 class Vector2dBase
 {
 public:
+  constexpr Vector2dBase() noexcept
+    : m_width(0)
+    , m_height(0)
+  {
+  }
+
   constexpr Vector2dBase(int width, int height) noexcept
     : m_width(width)
     , m_height(height)
@@ -50,6 +56,8 @@ template <typename T>
 class Vector2d : public Vector2dBase
 {
 public:
+  constexpr Vector2d() = default;
+
   constexpr Vector2d(int width, int height, T default_value = T()) noexcept
     : Vector2dBase(width, height)
     , data(static_cast<std::size_t>(width * height), default_value)

@@ -29,6 +29,16 @@ namespace Bot
     Offset position;
   };
 
+  struct HuntEnemies
+  {
+    constexpr explicit HuntEnemies(OffsetSet originalLocations)
+      : remainingToCheck{std::move(originalLocations)}
+    {
+    }
+
+    OffsetSet remainingToCheck;
+  };
+
   constexpr struct Explore_t
   {
   } Explore;
@@ -155,7 +165,8 @@ namespace Bot
     LeaveSquare_t,
     DropDoorOnEnemy,
     Attack_t,
-    PeekUnderEnemies>;
+    PeekUnderEnemies,
+    HuntEnemies>;
   using Commands = std::queue<Command>;
 
 } // namespace Bot

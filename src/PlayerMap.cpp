@@ -121,31 +121,17 @@ namespace Bot
 
     auto compareResult = Compare(view, convert);
 
-    if(compareResult.needsUpdate || enemies.inSight[playerId] != compareResult.enemies || !enemies.locations.empty())
+    if(compareResult.needsUpdate || enemies.inSight[playerId] != compareResult.enemies)
     {
       const auto result = std::make_shared<PlayerMap>(*this, compareResult.newMapSize);
       result->Update(view, convert);
 
-      for(auto it = result->enemies.locations.begin(); it != result->enemies.locations.end();)
-      {
-        if(--it->second <= 0)
-        {
-          it = result->enemies.locations.erase(it);
-        }
-        else
-        {
-          ++it;
-        }
-      }
       for(Offset missingEnemy: compareResult.disappearedEnemies)
       {
         result->enemies.locations.erase(missingEnemy);
       }
-      for(Offset enemy: compareResult.enemies)
-      {
-        result->enemies.locations[enemy] = EnemyPenalty;
-      }
       result->enemies.inSight[playerId] = compareResult.enemies;
+      result->enemies.locations.insert(compareResult.enemies.begin(), compareResult.enemies.end());
       result->uncheckedBoulders.merge(compareResult.newBoulders);
 
       return result;
@@ -177,7 +163,7 @@ namespace Bot
       }
     }
 
-    result.disappearedEnemies = enemies.locations | std::views::transform([](auto l) { return l.first; })
+    result.disappearedEnemies = enemies.locations
                               | std::views::filter(
                                   [&](auto position)
                                   {

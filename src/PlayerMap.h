@@ -53,8 +53,9 @@ namespace Bot
 
   struct Enemies
   {
-    OffsetMap<int> locations{};
+    OffsetSet locations{};
     std::array<OffsetSet, 2> inSight{};
+    size_t killed = 0;
   };
 
   struct TileComparisonResult
@@ -335,6 +336,6 @@ struct std::formatter<Bot::Enemies>
   constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin(); }
   auto format(const Bot::Enemies& enemies, std::format_context& ctx) const
   {
-    return std::format_to(ctx.out(), "{{InSight: {}, Locations:{}}}", enemies.inSight, enemies.locations);
+    return std::format_to(ctx.out(), "{{InSight: {}, Locations: {}}}", enemies.inSight, enemies.locations);
   }
 };

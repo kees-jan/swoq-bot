@@ -26,6 +26,7 @@ namespace Bot
       PeekingBelowEnemy,
       AttackingEnemy,
       Inactive,
+      HuntingEnemies,
     };
 
     Game(const Swoq::GameConnection& gameConnection, std::unique_ptr<Swoq::Game> game, std::optional<int> expectedLevel);
@@ -45,6 +46,7 @@ namespace Bot
     void MapUpdated(size_t playerId);
     void SwapPlayers();
     void CheckPlayerPresence();
+    OffsetSet OriginalEnemyLocations();
 
     std::optional<DoorColor> DoorToOpen(const std::shared_ptr<const PlayerMap>& map, int id);
     std::optional<DoorColor> PressurePlateToActivate(const std::shared_ptr<const PlayerMap>& map, int id);
@@ -107,6 +109,9 @@ struct std::formatter<Bot::Game::PlayerState>
       break;
     case Inactive:
       s = "Inactive";
+      break;
+    case HuntingEnemies:
+      s = "HuntingEnemies";
       break;
     }
 

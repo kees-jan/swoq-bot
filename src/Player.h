@@ -24,8 +24,13 @@ namespace Bot
     std::size_t pathLength = 0;
     bool hasSword = false;
     int health = 5;
+    int visibility = 0;
+    Vector2d<Swoq::Interface::Tile> view;
 
-    void Update(const std::optional<Swoq::Interface::PlayerState>& state);
+    void Update(
+      const std::optional<Swoq::Interface::PlayerState>& state,
+      int visibility_,
+      std::optional<Vector2d<Swoq::Interface::Tile>>& view_);
     std::optional<DirectedAction> GetAction();
   };
 
@@ -55,6 +60,7 @@ namespace Bot
     bool UpdateMap();
     std::expected<bool, std::string> VisitTiles(size_t playerId, const std::set<Tile>& tiles);
     std::expected<bool, std::string> Visit(size_t playerId, Offset destination);
+    std::expected<bool, std::string> Visit(size_t playerId, OffsetSet destinations);
     std::expected<bool, std::string> OpenDoor(size_t playerId, Bot::OpenDoor& door);
     std::expected<bool, std::string> FetchBoulder(size_t playerId, Bot::FetchBoulder& fetchBoulder);
     std::expected<bool, std::string> DropBoulder(size_t playerId, Bot::DropBoulder_t& dropBoulder);
@@ -67,6 +73,7 @@ namespace Bot
     std::expected<bool, std::string> Execute(size_t playerId, DropDoorOnEnemy& dropDoorOnEnemy);
     std::expected<bool, std::string> PeekUnderEnemies(size_t playerId, const OffsetSet& tileLocations);
     std::expected<bool, std::string> Attack(size_t playerId, Attack_t&);
+    std::expected<bool, std::string> HuntEnemies(size_t playerId, HuntEnemies& huntEnemies);
     std::expected<bool, std::string> Explore(size_t playerId);
     std::expected<void, std::string> UpdatePlan(size_t playerId);
     std::expected<bool, std::string> DoCommandIfAny(size_t playerId);

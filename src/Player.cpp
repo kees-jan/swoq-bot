@@ -88,7 +88,10 @@ namespace Bot
   } // namespace
 
 
-  void PlayerState::Update(const std::optional<Swoq::Interface::PlayerState>& state)
+  void PlayerState::Update(
+    const std::optional<Swoq::Interface::PlayerState>& state,
+    int visibility_,
+    std::optional<Vector2d<Swoq::Interface::Tile>>& view_)
   {
     auto newPosition = state.transform([](const auto& s) -> Offset { return s.position(); }).value_or(Offset(-1, -1));
 
@@ -100,6 +103,10 @@ namespace Bot
       hasSword = state->has_hassword() && state->hassword();
       if(state->has_health())
         health = state->health();
+      visibility = visibility_;
+      assert(view_);
+      view = *view_;
+      active = true;
     }
     else
       active = false;
@@ -163,8 +170,8 @@ namespace Bot
     }
 
     auto playerStateArray = m_state.Lock();
-    (*playerStateArray)[0].Update(state0);
-    (*playerStateArray)[1].Update(state1);
+    (*playerStateArray)[0].Update(state0, visibility, view0);
+    (*playerStateArray)[1].Update(state1, visibility, view1);
 
     if(newMap != map.Get())
     {
@@ -204,6 +211,7 @@ namespace Bot
             [&](const Bot::PeekUnderEnemies& peekUnderEnemies)
             { return PeekUnderEnemies(playerId, peekUnderEnemies.tileLocations); },
             [&](Attack_t& attack) { return Attack(playerId, attack); },
+            [&](Bot::HuntEnemies& huntEnemies) { return HuntEnemies(playerId, huntEnemies); },
           },
           commands.front());
 
@@ -235,7 +243,7 @@ namespace Bot
     {
       auto map = m_playerMap.Get();
       auto characterMap = map->Vector2d::Map([](Tile t) { return CharFromTile(t); });
-      for(auto& [position, penalty]: map->enemies.locations)
+      for(auto& position: map->enemies.locations)
         characterMap[position] = 'e';
       for(auto position: map->enemies.inSight | std::views::join)
         characterMap[position] = 'E';
@@ -490,6 +498,14 @@ namespace Bot
       [&](PlayerState& state) { return MoveToDestination(state, destination); });
   }
 
+  std::expected<bool, std::string> Player::Visit(size_t playerId, OffsetSet destinations)
+  {
+    return ComputePathAndThen(
+      playerId,
+      m_playerMap.Get(),
+      [destinations](Offset p) { return destinations.contains(p); },
+      [&](PlayerState& state) { return MoveToDestination(state); });
+  }
 
   std::expected<bool, std::string> Player::MoveAlongPathThenOpenDoor(PlayerState& state, Bot::OpenDoor& door)
   {
@@ -679,7 +695,7 @@ namespace Bot
     auto map = m_playerMap.Get();
     if(dropDoorOnEnemy.waiting)
     {
-      auto enemies = map->enemies.locations | std::views::transform([](auto& pair) { return pair.first; });
+      const auto& enemies = map->enemies.inSight[playerId];
       if(std::ranges::find_first_of(enemies, dropDoorOnEnemy.doorLocations) != std::ranges::end(enemies))
       {
         dropDoorOnEnemy.waiting = false;
@@ -723,11 +739,18 @@ namespace Bot
 
     return Visit(playerId, *destination);
   }
+
   std::expected<bool, std::string> Player::Attack(size_t playerId, Attack_t&)
   {
     auto map = m_playerMap.Get();
     if(map->enemies.inSight[playerId].empty())
+    {
+      auto currentMap = m_playerMap.Lock();
+      auto newMap = currentMap->Clone();
+      newMap->enemies.killed++;
+      currentMap = newMap;
       return true;
+    }
     auto stateArray = m_state.Lock();
     auto& state = (*stateArray)[playerId];
     if(state.health <= 1)
@@ -757,6 +780,36 @@ namespace Bot
     else
       state.next = DirectedAction::DIRECTED_ACTION_NONE;
     return false;
+  }
+
+  std::expected<bool, std::string> Player::HuntEnemies(size_t playerId, Bot::HuntEnemies& huntEnemies)
+  {
+    auto stateArray = m_state.Get();
+    auto map = m_playerMap.Get();
+
+    for(auto& state: stateArray)
+    {
+      if(state.active)
+      {
+        auto& view = state.view;
+        MapViewCoordinateConverter convert(state.position, state.visibility, state.view);
+        for(auto it = huntEnemies.remainingToCheck.begin(); it != huntEnemies.remainingToCheck.end();)
+        {
+          auto viewPosition = convert.ToView(*it);
+          if(view.IsInRange(viewPosition) && view[viewPosition] != Tile::TILE_UNKNOWN && view[viewPosition] != Tile::TILE_ENEMY)
+            it = huntEnemies.remainingToCheck.erase(it);
+          else
+            it++;
+        }
+      }
+    }
+    OffsetSet destinations = map->enemies.locations;
+    destinations.insert(huntEnemies.remainingToCheck.begin(), huntEnemies.remainingToCheck.end());
+
+    if(destinations.empty())
+      return true;
+
+    return Visit(playerId, destinations);
   }
 
   std::expected<bool, std::string> Player::Explore(size_t playerId)
