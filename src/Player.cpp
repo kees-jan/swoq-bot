@@ -552,17 +552,17 @@ namespace Bot
     return ComputePathAndThen(
       playerId,
       m_playerMap.Get(),
-      [&](Offset p) { return p == door.position; },
+      [&](Offset p) { return door.positions.contains(p); },
       [&](PlayerState& state) { return MoveAlongPathThenOpenDoor(state, door); });
   }
 
   std::expected<bool, std::string> Player::FetchBoulder(size_t playerId, Bot::FetchBoulder& fetchBoulder)
   {
-    auto boulderPosition = fetchBoulder.position;
+    auto boulderPositions = fetchBoulder.positions;
     return ComputePathAndThen(
       playerId,
       m_playerMap.Get(),
-      [&](Offset p) { return p == boulderPosition; },
+      [&](Offset p) { return boulderPositions.contains(p); },
       [&](PlayerState& state)
       {
         return MoveAlongPathThenUse(
@@ -570,6 +570,7 @@ namespace Bot
           fetchBoulder,
           [&]()
           {
+            auto boulderPosition = state.reversedPath.front();
             std::println("FetchBoulder: About to pick up boulder at {}", boulderPosition);
             UpdateMap(
               [&](auto map)
@@ -605,11 +606,10 @@ namespace Bot
   std::expected<bool, std::string>
     Player::PlaceBoulderOnPressurePlate(size_t playerId, Bot::PlaceBoulderOnPressurePlate& placeBoulder)
   {
-    auto pressurePlatePosition = placeBoulder.position;
     return ComputePathAndThen(
       playerId,
       m_playerMap.Get(),
-      [&](Offset p) { return p == pressurePlatePosition; },
+      [&](Offset p) { return placeBoulder.positions.contains(p); },
       [&](PlayerState& state) -> std::expected<bool, std::string>
       {
         return MoveAlongPathThenUse(
@@ -617,6 +617,7 @@ namespace Bot
           placeBoulder,
           [&]()
           {
+            auto pressurePlatePosition = state.reversedPath.front();
             std::println("PlaceBoulderOnPressurePlate: About to drop boulder at {}", pressurePlatePosition);
             UpdateMap(
               [&](auto map)

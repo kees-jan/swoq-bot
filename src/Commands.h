@@ -21,12 +21,17 @@ namespace Bot
 
   struct MoveToGoalThenUse : public MoveThenUse
   {
-    constexpr explicit MoveToGoalThenUse(Offset position_)
-      : position{position_}
+    constexpr explicit MoveToGoalThenUse(Offset position)
+      : positions{position}
     {
     }
 
-    Offset position;
+    constexpr explicit MoveToGoalThenUse(OffsetSet positions_)
+      : positions{positions_}
+    {
+    }
+
+    OffsetSet positions;
   };
 
   struct HuntEnemies
@@ -81,7 +86,7 @@ namespace Bot
 
   struct OpenDoor : public MoveToGoalThenUse
   {
-    constexpr OpenDoor(Offset doorPosition, DoorColor color_)
+    constexpr OpenDoor(OffsetSet doorPosition, DoorColor color_)
       : MoveToGoalThenUse(doorPosition)
       , color{color_}
     {

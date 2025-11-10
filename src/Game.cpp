@@ -241,7 +241,7 @@ namespace Bot
               doorData.doorPosition);
             Commands commands;
             commands.emplace(FetchKey(*doorData.keyPosition));
-            commands.emplace(OpenDoor(*doorData.doorPosition.begin(), *doorToOpen));
+            commands.emplace(OpenDoor(doorData.doorPosition, *doorToOpen));
             m_player.SetCommands(playerId, commands);
 
             playerState = PlayerState::OpeningDoor;
