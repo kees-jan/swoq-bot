@@ -71,7 +71,39 @@ strict digraph ThePlan {
 * Kill an enemy
   (So far (L12), only one enemy was accessible at any one time.)
 
-# "Game" state
+# Potential new game state
+
+```plantuml
+
+[*] -> TryingStuff
+
+state TryingStuff {
+  Idle --> Exploring
+  [*] --> Exploring
+  Exploring --> Idle
+  Idle --> StandOnPressurePlate
+  Idle --> HuntingEnemies
+  HuntingEnemies --> KillingEnemies
+  Exploring --> KillingEnemies
+}
+
+state exit <<choice>>
+TryingStuff --> exit
+
+exit --> GoToExit : [!CompleteRequired]
+exit --> FinishingUp : [CompleteRequired]
+FinishingUp --> GoToExit : OnExplorationComplete
+GoToExit -> [*]
+TryingStuff --> OpenDoorWithKey
+OpenDoorWithKey --> TryingStuff
+TryingStuff --> PutBoulderOnPressurePlate
+PutBoulderOnPressurePlate --> TryingStuff
+TryingStuff --> MoveBadBoulder
+MoveBadBoulder --> TryingStuff
+
+```
+
+# Current "Game" state
 ```plantuml
 [*] --> Idle
 Idle --> Exploring
