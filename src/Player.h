@@ -92,8 +92,11 @@ namespace Bot
 
     template <typename Predicate, typename Callable>
       requires std::is_invocable_v<Predicate, Offset> && std::is_invocable_v<Callable, PlayerState&>
-    std::expected<bool, std::string>
-      ComputePathAndThen(size_t playerId, const std::shared_ptr<const PlayerMap>& map, Predicate&& predicate, Callable&& callable)
+    std::expected<bool, std::string> ComputePathToDestinationAndThen(
+      size_t playerId,
+      const std::shared_ptr<const PlayerMap>& map,
+      Predicate&& predicate,
+      Callable&& callable)
     {
       auto stateArrayProxy = m_state.Lock();
       auto& state = (*stateArrayProxy)[playerId];
@@ -104,6 +107,19 @@ namespace Bot
       return std::forward<Callable>(callable)(state);
     }
 
+    template <typename Predicate, typename Callable>
+      requires std::is_invocable_v<Predicate, Offset> && std::is_invocable_v<Callable, PlayerState&>
+    std::expected<bool, std::string>
+      ComputePathAndThen(size_t playerId, const std::shared_ptr<const PlayerMap>& map, Predicate&& predicate, Callable&& callable)
+    {
+      auto stateArrayProxy = m_state.Lock();
+      auto& state = (*stateArrayProxy)[playerId];
+      auto weights = WeightMap(playerId, *map, map->enemies, map->NavigationParameters());
+      state.reversedPath = ReversedPath(weights, state.position, std::forward<Predicate>(predicate));
+      state.pathLength = state.reversedPath.size();
+
+      return std::forward<Callable>(callable)(state);
+    }
     template <typename Callable>
       requires std::is_invocable_v<Callable>
     std::expected<bool, std::string> MoveAlongPathThenUse(PlayerState& state, Bot::MoveThenUse& moveThenUse, Callable&& onUse)

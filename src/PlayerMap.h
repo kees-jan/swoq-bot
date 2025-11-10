@@ -209,6 +209,12 @@ namespace Bot
     const NavigationParameters& navigationParameters,
     Offset destination);
 
+  Vector2d<int> WeightMap(
+    size_t playerId,
+    const Vector2d<Tile>& map,
+    const Enemies& enemies,
+    const NavigationParameters& navigationParameters);
+
   template <typename Callable>
     requires std::is_invocable_v<Callable, Offset>
   Vector2d<int> WeightMap(

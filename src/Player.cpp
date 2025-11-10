@@ -98,7 +98,6 @@ namespace Bot
     if(state && newPosition.x >= 0 && newPosition.y >= 0)
     {
       position = newPosition;
-      std::println("Player {} at position {}", playerId, position);
       assert(position.x >= 0 && position.y >= 0);
       hasSword = state->has_hassword() && state->hassword();
       if(state->has_health())
@@ -481,7 +480,7 @@ namespace Bot
   std::expected<bool, std::string> Player::VisitTiles(size_t playerId, const std::set<Tile>& tiles)
   {
     auto map = m_playerMap.Get();
-    return ComputePathAndThen(
+    return ComputePathToDestinationAndThen(
       playerId,
       map,
       [&map = *map, &tiles](Offset p) { return tiles.contains(map[p]); },
@@ -490,7 +489,7 @@ namespace Bot
 
   std::expected<bool, std::string> Player::Visit(size_t playerId, Offset destination)
   {
-    return ComputePathAndThen(
+    return ComputePathToDestinationAndThen(
       playerId,
       m_playerMap.Get(),
       [destination](Offset p) { return p == destination; },
@@ -499,7 +498,7 @@ namespace Bot
 
   std::expected<bool, std::string> Player::Visit(size_t playerId, OffsetSet destinations)
   {
-    return ComputePathAndThen(
+    return ComputePathToDestinationAndThen(
       playerId,
       m_playerMap.Get(),
       [destinations](Offset p) { return destinations.contains(p); },
@@ -549,7 +548,7 @@ namespace Bot
 
   std::expected<bool, std::string> Player::OpenDoor(size_t playerId, Bot::OpenDoor& door)
   {
-    return ComputePathAndThen(
+    return ComputePathToDestinationAndThen(
       playerId,
       m_playerMap.Get(),
       [&](Offset p) { return door.positions.contains(p); },
@@ -559,7 +558,7 @@ namespace Bot
   std::expected<bool, std::string> Player::FetchBoulder(size_t playerId, Bot::FetchBoulder& fetchBoulder)
   {
     auto boulderPositions = fetchBoulder.positions;
-    return ComputePathAndThen(
+    return ComputePathToDestinationAndThen(
       playerId,
       m_playerMap.Get(),
       [&](Offset p) { return boulderPositions.contains(p); },
@@ -586,7 +585,7 @@ namespace Bot
   {
     auto map = m_playerMap.Get();
     auto myLocation = m_state.Get()[playerId].position;
-    return ComputePathAndThen(
+    return ComputePathToDestinationAndThen(
       playerId,
       map,
       [&](Offset p) { return (*map)[p] == Tile::TILE_EMPTY && map->IsGoodBoulder(p) && p != myLocation; },
@@ -606,7 +605,7 @@ namespace Bot
   std::expected<bool, std::string>
     Player::PlaceBoulderOnPressurePlate(size_t playerId, Bot::PlaceBoulderOnPressurePlate& placeBoulder)
   {
-    return ComputePathAndThen(
+    return ComputePathToDestinationAndThen(
       playerId,
       m_playerMap.Get(),
       [&](Offset p) { return placeBoulder.positions.contains(p); },

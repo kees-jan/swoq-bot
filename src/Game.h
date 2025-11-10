@@ -25,6 +25,7 @@ namespace Bot
       Terminating,
       PeekingBelowEnemy,
       AttackingEnemy,
+      DroppingDoorOnEnemy,
       Inactive,
       HuntingEnemies,
     };
@@ -112,6 +113,9 @@ struct std::formatter<Bot::Game::PlayerState>
       break;
     case HuntingEnemies:
       s = "HuntingEnemies";
+      break;
+    case DroppingDoorOnEnemy:
+      s = "DroppingDoorOnEnemy";
       break;
     }
 

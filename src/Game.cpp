@@ -14,7 +14,8 @@ namespace Bot
   {
     constexpr bool IsEngagingEnemy(Game::PlayerState playerState)
     {
-      return playerState == Game::PlayerState::PeekingBelowEnemy || playerState == Game::PlayerState::AttackingEnemy;
+      return playerState == Game::PlayerState::PeekingBelowEnemy || playerState == Game::PlayerState::AttackingEnemy
+          || playerState == Game::PlayerState::DroppingDoorOnEnemy;
     }
   } // namespace
 
@@ -45,7 +46,7 @@ namespace Bot
   {
     PrintDungeonMap();
 
-    std::print("Reached level {}!\n", level);
+    std::print("Game: Reached level {}!\n", level);
     m_level = level;
     m_playerMap.Lock() = std::make_shared<PlayerMap>(m_mapSize);
     m_dungeonMap.Lock() = DungeonMap::Create(m_mapSize);
@@ -67,7 +68,7 @@ namespace Bot
 
       if(state.hasSword && state.health >= 6 && !enemiesInSight.empty())
       {
-        std::println("Player {}: Enemies in sight at {}. Attacking", playerId, enemiesInSight);
+        std::println("Game: Player {}: Enemies in sight at {}. Attacking", playerId, enemiesInSight);
         m_player.SetCommand(playerId, Attack);
 
         playerState = PlayerState::AttackingEnemy;
@@ -77,7 +78,7 @@ namespace Bot
                                   | std::ranges::to<OffsetSet>();
               !unknownSquares.empty())
       {
-        std::println("Player {}: Enemies are obscuring {}. Luring them away", playerId, unknownSquares);
+        std::println("Game: Player {}: Enemies are obscuring {}. Luring them away", playerId, unknownSquares);
         m_player.SetCommand(playerId, PeekUnderEnemies(unknownSquares));
 
         playerState = PlayerState::PeekingBelowEnemy;
@@ -134,7 +135,7 @@ namespace Bot
   void Game::MapUpdated()
   {
     CheckPlayerPresence();
-    std::println("Game: Player updated the map while doing  {}, {}", m_leadPlayerState, m_otherPlayerState);
+    std::println("Game: Player updated the map while doing {}, {}", m_leadPlayerState, m_otherPlayerState);
     MapUpdated(LeadPlayer());
     MapUpdated(OtherPlayer());
   }
@@ -180,7 +181,7 @@ namespace Bot
       size_t enemiesAlive = originalEnemyLocations.size() - map->enemies.killed;
 
       std::println(
-        "Player {}: Playerstate: {}, exit: {} (reachable: {}), door to open: {}, pressureplate to activate: {}, boulders to check: {}, enemies alive: {}",
+        "Game: Player {}: Playerstate: {}, exit: {} (reachable: {}), door to open: {}, pressureplate to activate: {}, boulders to check: {}, enemies alive: {}",
         playerId,
         playerState,
         map->Exit(),
@@ -199,7 +200,7 @@ namespace Bot
         if(!bouldersToMove.empty())
         {
           auto destination = ClosestUncheckedBoulder(*map, playerId);
-          std::println("Player {}: Planning move boulder at {}", playerId, destination);
+          std::println("Game: Player {}: Planning move boulder at {}", playerId, destination);
           Commands commands;
           commands.emplace(FetchBoulder(destination));
           commands.emplace(DropBoulder);
@@ -217,7 +218,7 @@ namespace Bot
       {
         if(playerState != PlayerState::Exploring)
         {
-          std::println("Player {}: Resume exploration", playerId);
+          std::println("Game: Player {}: Resume exploration", playerId);
           m_player.SetCommand(playerId, Explore);
           playerState = PlayerState::Exploring;
         }
@@ -225,7 +226,7 @@ namespace Bot
         {
           if(!bouldersToMove.empty())
           {
-            std::println("Player {}: Reconsidering unchecked boulders", playerId);
+            std::println("Game: Player {}: Reconsidering unchecked boulders", playerId);
             m_player.SetCommand(playerId, ReconsiderUncheckedBoulders);
 
             playerState = PlayerState::ReconsideringUncheckedBoulders;
@@ -234,7 +235,7 @@ namespace Bot
           {
             auto doorData = map->DoorData().at(*doorToOpen);
             std::println(
-              "Player {}: Planning to open {} door. Key is at {}, door is at {}",
+              "Game: Player {}: Planning to open {} door. Key is at {}, door is at {}",
               playerId,
               *doorToOpen,
               doorData.keyPosition,
@@ -254,7 +255,7 @@ namespace Bot
             if(boulder)
             {
               std::println(
-                "Player {}: Planning to move boulder at {} to {} pressureplate at {}",
+                "Game: Player {}: Planning to move boulder at {} to {} pressureplate at {}",
                 playerId,
                 *boulder,
                 *pressurePlateToActivate,
@@ -269,7 +270,7 @@ namespace Bot
             else
             {
               std::println(
-                "Player {}: No boulder found to put on {} pressureplate at {}. Going there myself",
+                "Game: Player {}: No boulder found to put on {} pressureplate at {}. Going there myself",
                 playerId,
                 *pressurePlateToActivate,
                 pressurePlatePosition);
@@ -277,11 +278,12 @@ namespace Bot
               commands.emplace(Visit(pressurePlatePosition));
               commands.emplace(DropDoorOnEnemy(doorData.doorPosition));
               m_player.SetCommands(playerId, commands);
+              playerState = PlayerState::DroppingDoorOnEnemy;
             }
           }
           else if(map->Exit() && exitIsReachable)
           {
-            std::println("Going to the exit");
+            std::println("Game: Going to the exit");
             auto stateArray = m_player.State();
             if(!stateArray[LeadPlayer()].active)
             {
@@ -301,14 +303,14 @@ namespace Bot
           }
           else if(enemiesAlive > 0)
           {
-            std::println("Player {}: {} enemies still alive. Hunting them down", playerId, enemiesAlive);
+            std::println("Game: Player {}: {} enemies still alive. Hunting them down", playerId, enemiesAlive);
             m_player.SetCommand(playerId, HuntEnemies(originalEnemyLocations));
 
             playerState = PlayerState::HuntingEnemies;
           }
           else
           {
-            std::println("Terminating player {}", playerId);
+            std::println("Game: Terminating player {}", playerId);
             m_player.SetCommand(playerId, Terminate);
             playerState = PlayerState::Terminating;
           }
@@ -317,7 +319,7 @@ namespace Bot
     }
     else
     {
-      std::println("Player {}: Waiting for other to make progress", playerId);
+      std::println("Game: Player {}: Waiting for other to make progress", playerId);
       m_player.SetCommand(playerId, Wait);
       playerState = PlayerState::Idle;
     }
